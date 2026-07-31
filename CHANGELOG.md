@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 - Added an `msbc/` catalog with mock, MiniMax Hailuo 02 Standard, Veo 3.1 Fast, and LTX 2.3 Fast engine profiles.
 - Added fal key setup and authentication guidance for the fal engine profiles.
 - Added real fal rendering with asset upload, model-specific request mapping, output download and normalization, request provenance, and resumable failure state.
+- Added a provider-ready six-second smoke-test bundle and an MSBC authoring and testing guide.
 - Embedded the effective configuration and its hash in every builder output for reproducibility.
 
 ### Changed

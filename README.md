@@ -57,6 +57,8 @@ Credentials are read only from the environment by provider adapters and must nev
 
 [`examples/compound-interest`](examples/compound-interest) contains “The Marshmallow Investment”: two stable sock puppets, one location, a prop, timed alternating dialogue, continuity constraints, and three 10-second shots. Placeholder SVG references are safe to redistribute.
 
+[`examples/smoke-test.msb`](examples/smoke-test.msb) is a provider-ready single-shot bundle for testing engine configurations. See the [`msbc` authoring and testing guide](msbc/README.md).
+
 ## Development
 
 ```bash

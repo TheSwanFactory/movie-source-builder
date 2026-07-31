@@ -16,6 +16,7 @@
     "dist",
     "schemas",
     "msbc",
+    "examples/smoke-test.msb",
     "README.md",
     "LICENSE"
   ],
