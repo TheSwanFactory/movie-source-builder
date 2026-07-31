@@ -41,11 +41,13 @@ For example, `msb render source.msb --config msbc/mock.msbc` writes `output.msbo
 
 Pass an explicit `--out` when a stable path is useful for cache reuse or resuming: `msb make source.msb --config render.msbc --out movie.mp4` retains `movie.msbo` beside the MP4.
 
+`--config` is also optional. When omitted, the CLI loads its packaged [`msbc/default.msbc`](msbc/default.msbc), which inherits the cheapest configured paid engine. Pass `--config msbc/mock.msbc` for a provider-free render.
+
 ## Containers and schemas
 
 An `.msb` is ZIP-compatible and begins with `manifest.json`. It can include `screenplay.md`, `characters/`, `locations/`, `props/`, `audio/`, and `references/`. The manifest contains creative project metadata, stable entities, and ordered generation-sized shots. A source folder is packed into this portable container with `msb pack`.
 
-An `.msbc` is a JSON document validated independently from the source. It defines a reusable rendering engine and cannot contain style, character, voice, shot, duration, or other content-specific instructions. `renderer.requiredEnvironmentVariables` lists the environment-variable names that must be present before the renderer is called; their values remain outside every artifact. The same engine configuration can render any compatible `.msb`.
+An `.msbc` is a JSON document validated independently from the source. It defines a reusable rendering engine and cannot contain style, character, voice, shot, duration, or other content-specific instructions. Configurations may inherit another `.msbc` through a safe relative `extends` path, allowing output formats and engines to be composed. `renderer.requiredEnvironmentVariables` lists the environment-variable names that must be present before the renderer is called; their values remain outside every artifact. The same engine configuration can render any compatible `.msb`.
 
 An `.msbo` is ZIP-compatible. It contains `output.json`, `source/manifest.json`, the effective `configuration.msbc`, and generated `shots/`. Each shot records a deterministic cache key, content hash, status, provider/model/request identity, attempts, timestamps, and estimated/actual cost. The output records hashes for both its source bundle and configuration.
 

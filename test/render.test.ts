@@ -101,7 +101,7 @@ describe("render planning", () => {
     await writeFile(
       configured,
       JSON.stringify({
-        formatVersion: "1.0.0",
+        version: "1.0.0",
         output: {
           aspectRatio: "16:9",
           width: 512,

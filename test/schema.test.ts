@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   msbManifestSchema,
   msbcConfigurationSchema,
+  msbcFileSchema,
   msboOutputSchema,
 } from "../src/schema.js";
+import { loadMsbc } from "../src/render.js";
 
 const manifest = JSON.parse(
   readFileSync("examples/compound-interest/manifest.json", "utf8"),
@@ -24,21 +26,30 @@ describe("schemas", () => {
     ).toThrow();
   });
 
-  it("accepts every cataloged engine configuration", () => {
-    const files = readdirSync("msbc").filter((file) => file.endsWith(".msbc"));
+  it("accepts every MSBC source file", () => {
+    const files = readdirSync("msbc", {
+      recursive: true,
+      encoding: "utf8",
+    }).filter((file) => file.endsWith(".msbc"));
     expect(files.length).toBeGreaterThan(1);
     for (const file of files)
       expect(() =>
-        msbcConfigurationSchema.parse(
-          JSON.parse(readFileSync(`msbc/${file}`, "utf8")),
-        ),
+        msbcFileSchema.parse(JSON.parse(readFileSync(`msbc/${file}`, "utf8"))),
       ).not.toThrow();
   });
 
   it("rejects content-specific configuration", () => {
     expect(() =>
-      msbcConfigurationSchema.parse({ ...configuration, style: {} }),
+      msbcFileSchema.parse({ ...configuration, style: {} }),
     ).toThrow();
+  });
+
+  it("resolves default configuration inheritance", async () => {
+    const defaults = await loadMsbc("msbc/default.msbc");
+    const hailuo = await loadMsbc("msbc/fal-hailuo-02-standard.msbc");
+    expect(defaults.configuration).toEqual(hailuo.configuration);
+    expect(defaults.configuration.renderer.provider).toBe("fal");
+    expect(defaults.configuration.output.height).toBe(768);
   });
 
   it("validates required renderer environment variable names", () => {

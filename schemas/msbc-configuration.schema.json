@@ -2,7 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "formatVersion": { "type": "string", "pattern": "^1\\.\\d+\\.\\d+$" },
+    "version": { "type": "string", "pattern": "^1\\.\\d+\\.\\d+$" },
+    "extends": { "type": "string", "minLength": 1 },
     "output": {
       "type": "object",
       "properties": {
@@ -19,7 +20,6 @@
         },
         "frameRate": { "type": "number", "exclusiveMinimum": 0 }
       },
-      "required": ["aspectRatio", "width", "height", "frameRate"],
       "additionalProperties": false
     },
     "renderer": {
@@ -33,10 +33,9 @@
           "items": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$" }
         }
       },
-      "required": ["provider", "model", "requiredEnvironmentVariables"],
       "additionalProperties": false
     }
   },
-  "required": ["formatVersion", "output", "renderer"],
+  "required": ["version"],
   "additionalProperties": false
 }

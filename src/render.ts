@@ -5,9 +5,11 @@ import { readArchive, writeArchive } from "./archive.js";
 import {
   msbManifestSchema,
   msbcConfigurationSchema,
+  msbcFileSchema,
   msboOutputSchema,
   type MsbManifest,
   type MsbcConfiguration,
+  type MsbcFile,
   type MsboOutput,
 } from "./schema.js";
 
@@ -36,13 +38,50 @@ export async function loadMsbc(file: string): Promise<{
   configuration: MsbcConfiguration;
   configurationHash: string;
 }> {
-  const bytes = await readFile(file);
   const configuration = msbcConfigurationSchema.parse(
-    JSON.parse(bytes.toString("utf8")),
+    await resolveMsbc(path.resolve(file), new Set()),
   );
   return {
     configuration,
     configurationHash: hash(`${JSON.stringify(configuration, null, 2)}\n`),
+  };
+}
+
+type LoosePartial<T> = { [Key in keyof T]?: T[Key] | undefined };
+type PartialMsbc = {
+  version?: string;
+  output?: LoosePartial<MsbcConfiguration["output"]> | undefined;
+  renderer?: LoosePartial<MsbcConfiguration["renderer"]> | undefined;
+};
+
+async function resolveMsbc(
+  file: string,
+  ancestors: Set<string>,
+): Promise<PartialMsbc> {
+  if (ancestors.has(file))
+    throw new Error(
+      `cyclic MSBC inheritance: ${[...ancestors, file].join(" -> ")}`,
+    );
+  const nextAncestors = new Set(ancestors).add(file);
+  const raw = msbcFileSchema.parse(
+    JSON.parse((await readFile(file)).toString("utf8")),
+  ) as MsbcFile;
+  const parent = raw.extends
+    ? await resolveMsbc(
+        path.resolve(path.dirname(file), raw.extends),
+        nextAncestors,
+      )
+    : {};
+  return {
+    version: raw.version,
+    output:
+      parent.output || raw.output
+        ? { ...parent.output, ...raw.output }
+        : undefined,
+    renderer:
+      parent.renderer || raw.renderer
+        ? { ...parent.renderer, ...raw.renderer }
+        : undefined,
   };
 }
 

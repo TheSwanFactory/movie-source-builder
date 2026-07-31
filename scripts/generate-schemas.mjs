@@ -3,7 +3,7 @@ import { format } from "prettier";
 import { z } from "zod";
 import {
   msbManifestSchema,
-  msbcConfigurationSchema,
+  msbcFileSchema,
   msboOutputSchema,
 } from "../dist/schema.js";
 
@@ -15,8 +15,5 @@ const writeSchema = async (file, schema) =>
   );
 
 await writeSchema("schemas/msb-manifest.schema.json", msbManifestSchema);
-await writeSchema(
-  "schemas/msbc-configuration.schema.json",
-  msbcConfigurationSchema,
-);
+await writeSchema("schemas/msbc-configuration.schema.json", msbcFileSchema);
 await writeSchema("schemas/msbo-output.schema.json", msboOutputSchema);

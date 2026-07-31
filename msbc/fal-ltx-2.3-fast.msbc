@@ -1,11 +1,6 @@
 {
-  "formatVersion": "1.0.0",
-  "output": {
-    "aspectRatio": "16:9",
-    "width": 1920,
-    "height": 1080,
-    "frameRate": 25
-  },
+  "version": "1.0.0",
+  "extends": "formats/landscape-1080p-25fps.msbc",
   "renderer": {
     "provider": "fal",
     "model": "fal-ai/ltx-2.3/image-to-video/fast",

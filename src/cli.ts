@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 import { readArchive, writeArchiveFromDirectory } from "./archive.js";
 import { exportMovie } from "./export.js";
@@ -15,6 +16,10 @@ const program = new Command()
   .description("Build and render Movie Source Bundles")
   .version("0.2.0");
 if (existsSync(".env")) loadEnvFile(".env");
+const DEFAULT_CONFIGURATION = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../msbc/default.msbc",
+);
 const number = (value: string) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0)
@@ -80,9 +85,9 @@ program
 function renderOptions(command: Command): Command {
   return command
     .option("-o, --out <file>", "explicit output path; defaults under ./build")
-    .requiredOption(
+    .option(
       "-c, --config <file>",
-      "Movie Source Builder Configuration (.msbc)",
+      "Movie Source Builder Configuration (.msbc); defaults to packaged default.msbc",
     )
     .option("--dry-run")
     .option("--work-dir <path>")
@@ -98,11 +103,12 @@ renderOptions(
     .description("Render an .msb with an .msbc into an .msbo")
     .argument("<file>"),
 ).action(async (file, options) => {
-  const defaults = defaultBuildPaths(file, options.config);
+  const configuration = options.config ?? DEFAULT_CONFIGURATION;
+  const defaults = defaultBuildPaths(file, configuration);
   const output = options.out ?? defaults.msbo;
   const plan = await renderMovie(file, {
     output,
-    configuration: options.config,
+    configuration,
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
@@ -140,14 +146,15 @@ renderOptions(
     .description("Render and export in one command")
     .argument("<file>"),
 ).action(async (file, options) => {
-  const defaults = defaultBuildPaths(file, options.config);
+  const configuration = options.config ?? DEFAULT_CONFIGURATION;
+  const defaults = defaultBuildPaths(file, configuration);
   const movie = (options.out as string | undefined) ?? defaults.movie;
   const msbo = options.out
     ? movie.replace(/\.mp4$/i, "") + ".msbo"
     : defaults.msbo;
   const plan = await renderMovie(file, {
     output: msbo,
-    configuration: options.config,
+    configuration,
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
