@@ -53,7 +53,7 @@ An `.msbo` is ZIP-compatible. It contains `msbo.json`, `source/msb.json`, the ef
 
 Generated schemas are published under [`schemas/`](schemas/) after `npm run build`.
 
-Ready-to-use engine profiles are cataloged under [`msbc/`](msbc/README.md). The local mock profile is supported today; paid-provider profiles document their model IDs and required environment variables ahead of adapter support.
+Ready-to-use mock, Hailuo 02 Standard, Veo 3.1 Fast, and LTX 2.3 Fast engine profiles are documented under [`msbc/`](msbc/README.md). The three paid profiles use the fal adapter and require `FAL_KEY`; the mock profile stays entirely local.
 
 Design context, implementation planning, contracts, and other project notes are collected under [`docs/`](docs/README.md).
 
@@ -64,6 +64,16 @@ Archive reads reject absolute paths, traversal, links, duplicate normalized entr
 `--dry-run` plans work without provider requests. It reports missing renderer environment variables without exposing their values. `--max-cost <usd>` rejects a render before new work begins if its estimated cost is too high. Cache keys include the shot, complete engine configuration, and referenced asset hashes. Render state is checkpointed atomically in the work directory after every completed shot.
 
 Credentials are read only from the environment by provider adapters and must never be stored in source, configuration, output, reports, caches, or logs. The CLI loads a repository-local `.env` when present. The mock and fal renderers share the same validated, resumable output path; automated tests use only the mock renderer and never submit paid requests.
+
+Verify credentials through the selected engine adapter without submitting a generation request:
+
+```bash
+msb verify-auth --config msbc/fal-hailuo-02-standard.msbc
+# or verify the packaged default configuration
+msb verify-auth
+```
+
+The command resolves inherited configuration, checks every declared environment variable, and never prints credential values. Successful fal authentication does not by itself guarantee model access, balance, or quota.
 
 ## Example
 
@@ -84,6 +94,8 @@ npm run smoke
 npm run check
 ```
 
+The complete check validates and resolves every runnable `.msbc`, dry-runs each profile against the checked-in smoke-test `.msb`, independently validates representative `.msb`, `.msbc`, and `.msbo` documents against the published JSON Schemas, exercises the mock `.msb → .msbo → .mp4` pipeline, and rejects stale generated schemas.
+
 ## Publishing
 
 Merges to `main` run [`.github/workflows/publish.yml`](.github/workflows/publish.yml). The workflow verifies the package and publishes the version in `package.json` when that version does not already exist on npm. It uses npm trusted publishing through GitHub OIDC; no long-lived `NPM_TOKEN` is required.
@@ -99,16 +111,10 @@ The release job uses a GitHub-hosted runner, Node.js 24, npm 11.5.1 or later, an
 
 Tests use only the mock renderer, which synthesizes tiny valid H.264/AAC clips with the bundled FFmpeg. They never submit paid requests.
 
-## Current limitations
-
-- TTS adapters remain upcoming.
-- Source manifests must already contain generation-sized 6- or 10-second shots; `msb` does not compile prose screenplays.
-- The mock output has silent audio and solid-color video.
-- Export concatenates already-normalized clips. Mixing, subtitle authoring, and advanced timing are future work.
-- `ffmpeg-static` redistributes platform binaries; downstream distributors should review its GPL/LGPL licensing notes for their chosen build.
-
 ## fal rendering
 
-See [`msbc/README.fal.md`](msbc/README.fal.md) for API-key setup, source-reference requirements, dry runs, and real rendering commands.
+See [`msbc/README.fal.md`](msbc/README.fal.md) for API-key setup, authentication verification, source-reference requirements, dry runs, and real rendering commands. `ffmpeg-static` redistributes platform binaries; downstream distributors should review its GPL/LGPL licensing notes for their chosen build.
+
+Release history is maintained in the [`CHANGELOG`](CHANGELOG.md).
 
 MIT licensed.
