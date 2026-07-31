@@ -41,6 +41,8 @@ An `.msbo` is ZIP-compatible. It contains `output.json`, `source/manifest.json`,
 
 Generated schemas are published under [`schemas/`](schemas/) after `npm run build`.
 
+Design context, implementation planning, contracts, and other project notes are collected under [`docs/`](docs/README.md).
+
 ## Safety and cost controls
 
 Archive reads reject absolute paths, traversal, links, duplicate normalized entries, oversized entries, excessive entry counts, and excessive expansion. All referenced assets and entity IDs are verified before rendering.
