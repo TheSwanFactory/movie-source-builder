@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { writeArchiveFromDirectory } from "../src/archive.js";
-import { createPlan, falInput, renderMovie } from "../src/render.js";
+import {
+  createPlan,
+  falInput,
+  renderMovie,
+  verifyRendererAuthentication,
+} from "../src/render.js";
 
 let bundle: string;
 const configuration = path.resolve("msbc/mock.msbc");
@@ -144,4 +149,56 @@ describe("render planning", () => {
     expect(second.units.every((unit) => unit.reused)).toBe(true);
     expect(second.estimatedCost).toBe(0);
   }, 60_000);
+});
+
+describe("renderer authentication", () => {
+  it("verifies fal credentials without a generation request", async () => {
+    const previous = process.env.FAL_KEY;
+    process.env.FAL_KEY = "test-only-not-a-real-key";
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetch);
+    try {
+      await expect(
+        verifyRendererAuthentication(
+          path.resolve("msbc/fal-hailuo-02-standard.msbc"),
+        ),
+      ).resolves.toMatchObject({
+        provider: "fal",
+        verified: true,
+        remote: true,
+      });
+      expect(fetch).toHaveBeenCalledOnce();
+      const [url, options] = fetch.mock.calls[0]!;
+      expect(String(url)).toBe("https://api.fal.ai/v1/models?limit=1");
+      expect(options).toMatchObject({
+        headers: { Authorization: "Key test-only-not-a-real-key" },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      if (previous === undefined) delete process.env.FAL_KEY;
+      else process.env.FAL_KEY = previous;
+    }
+  });
+
+  it("rejects invalid fal credentials", async () => {
+    const previous = process.env.FAL_KEY;
+    process.env.FAL_KEY = "invalid-test-key";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("unauthorized", { status: 401 })),
+    );
+    try {
+      await expect(
+        verifyRendererAuthentication(
+          path.resolve("msbc/fal-veo-3.1-fast.msbc"),
+        ),
+      ).rejects.toThrow("fal authentication failed: HTTP 401");
+    } finally {
+      vi.unstubAllGlobals();
+      if (previous === undefined) delete process.env.FAL_KEY;
+      else process.env.FAL_KEY = previous;
+    }
+  });
 });

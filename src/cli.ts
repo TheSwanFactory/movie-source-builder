@@ -8,7 +8,12 @@ import { Command, InvalidArgumentError } from "commander";
 import { readArchive, writeArchiveFromDirectory } from "./archive.js";
 import { exportMovie } from "./export.js";
 import { defaultBuildPaths } from "./paths.js";
-import { loadMsb, loadMsbc, renderMovie } from "./render.js";
+import {
+  loadMsb,
+  loadMsbc,
+  renderMovie,
+  verifyRendererAuthentication,
+} from "./render.js";
 import { msboOutputSchema } from "./schema.js";
 
 const program = new Command()
@@ -80,6 +85,25 @@ program
           : `${manifest.project.title}\nShots: ${manifest.shots.length}\nDuration: ${manifest.shots.reduce((sum, s) => sum + s.duration, 0)}s\nSource: ${sourceHash}`,
       );
     }
+  });
+
+program
+  .command("verify-auth")
+  .description("Verify renderer authentication without rendering")
+  .option(
+    "-c, --config <file>",
+    "Movie Source Builder Configuration (.msbc); defaults to packaged default.msbc",
+  )
+  .option("--json")
+  .action(async (options) => {
+    const result = await verifyRendererAuthentication(
+      options.config ?? DEFAULT_CONFIGURATION,
+    );
+    console.log(
+      options.json
+        ? JSON.stringify(result, null, 2)
+        : `${result.message}\nProvider: ${result.provider}\nModel: ${result.model}`,
+    );
   });
 
 function renderOptions(command: Command): Command {
@@ -187,5 +211,9 @@ async function loadManifestDirectory(directory: string): Promise<void> {
 program.parseAsync().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`msb: ${message}`);
-  process.exitCode = message.includes("cost") ? 5 : 3;
+  process.exitCode = message.includes("cost")
+    ? 5
+    : /authentication|environment variables/.test(message)
+      ? 4
+      : 3;
 });

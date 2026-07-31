@@ -47,6 +47,54 @@ export async function loadMsbc(file: string): Promise<{
   };
 }
 
+export interface AuthenticationVerification {
+  provider: string;
+  model: string;
+  verified: boolean;
+  remote: boolean;
+  message: string;
+}
+
+export async function verifyRendererAuthentication(
+  configurationFile: string,
+): Promise<AuthenticationVerification> {
+  const { configuration } = await loadMsbc(configurationFile);
+  const missing = configuration.renderer.requiredEnvironmentVariables.filter(
+    (name) => !process.env[name],
+  );
+  if (missing.length > 0)
+    throw new Error(
+      `missing required renderer environment variables: ${missing.join(", ")}`,
+    );
+  if (configuration.renderer.provider === "mock")
+    return {
+      provider: "mock",
+      model: configuration.renderer.model,
+      verified: true,
+      remote: false,
+      message: "mock renderer requires no remote authentication",
+    };
+  if (configuration.renderer.provider !== "fal")
+    throw new Error(
+      `authentication verification is unsupported for provider: ${configuration.renderer.provider}`,
+    );
+  const url = new URL("https://api.fal.ai/v1/models");
+  url.searchParams.set("limit", "1");
+  const response = await fetch(url, {
+    headers: { Authorization: `Key ${process.env.FAL_KEY}` },
+  });
+  if (!response.ok)
+    throw new Error(`fal authentication failed: HTTP ${response.status}`);
+  return {
+    provider: "fal",
+    model: configuration.renderer.model,
+    verified: true,
+    remote: true,
+    message:
+      "fal authentication verified; model access, balance, and quota were not checked",
+  };
+}
+
 type LoosePartial<T> = { [Key in keyof T]?: T[Key] | undefined };
 type PartialMsbc = {
   version?: string;
