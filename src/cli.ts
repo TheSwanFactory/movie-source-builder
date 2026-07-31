@@ -19,7 +19,7 @@ import { msboOutputSchema } from "./schema.js";
 const program = new Command()
   .name("msb")
   .description("Build and render Movie Source Bundles")
-  .version("0.2.0");
+  .version("0.2.1");
 if (existsSync(".env")) loadEnvFile(".env");
 const DEFAULT_CONFIGURATION = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

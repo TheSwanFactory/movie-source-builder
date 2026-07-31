@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.1] - 2026-07-31
+
+### Fixed
+
+- Updated package metadata and documentation for the 0.2.1 patch release.
+
 ## [0.2.0] - 2026-07-31
 
 ### Added

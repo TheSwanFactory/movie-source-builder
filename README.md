@@ -15,6 +15,20 @@ source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder
 
 Requires Node.js 24 or later. FFmpeg is bundled; Homebrew, apt, and a system FFmpeg are not required.
 
+Install from npm:
+
+```bash
+npm install -g movie-source-builder
+```
+
+Or install locally in a project:
+
+```bash
+npm install movie-source-builder
+```
+
+Then build and run locally:
+
 ```bash
 npm install
 npm run build
@@ -28,6 +42,8 @@ msb render compound-interest.msb --config msbc/mock.msbc --out compound-interest
 msb inspect compound-interest.msbo
 msb export compound-interest.msbo --out compound-interest.mp4
 ```
+
+The package is available on npm at `https://www.npmjs.com/package/movie-source-builder`.
 
 Without `--out`, each invocation writes to a gitignored, timestamped build directory:
 
