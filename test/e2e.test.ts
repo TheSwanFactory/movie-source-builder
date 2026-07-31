@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { writeArchiveFromDirectory } from "../src/archive.js";
+import { readArchive } from "../src/archive.js";
 import { exportMovie } from "../src/export.js";
 import { renderMovie } from "../src/render.js";
+import { msboOutputSchema } from "../src/schema.js";
 
 describe("mocked end-to-end movie", () => {
   it("packs, renders, and exports without paid providers", async () => {
@@ -20,6 +22,12 @@ describe("mocked end-to-end movie", () => {
       output,
       configuration: path.resolve("msbc/mock.msbc"),
     });
+    const outputEntries = await readArchive(output);
+    const outputJson = outputEntries.get("output.json");
+    expect(outputJson).toBeDefined();
+    expect(
+      msboOutputSchema.parse(JSON.parse(outputJson!.toString("utf8"))).status,
+    ).toBe("complete");
     await exportMovie(output, movie);
     expect((await stat(movie)).size).toBeGreaterThan(1_000);
   }, 60_000);

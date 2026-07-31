@@ -222,13 +222,13 @@ export async function renderMovie(
     throw new Error(
       `unsupported renderer provider: ${plan.configuration.renderer.provider}`,
     );
+  if (options.dryRun) return plan;
   if (plan.configuration.renderer.provider === "fal")
     await applyFalPricing(plan);
   if (options.maxCost !== undefined && plan.estimatedCost > options.maxCost)
     throw new Error(
       `estimated cost $${plan.estimatedCost.toFixed(2)} exceeds --max-cost $${options.maxCost.toFixed(2)}`,
     );
-  if (options.dryRun) return plan;
   const work = path.resolve(options.workDir ?? `${options.output}.work`);
   await mkdir(path.join(work, "shots"), { recursive: true });
   const now = new Date().toISOString();
