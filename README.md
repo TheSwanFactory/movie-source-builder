@@ -29,7 +29,17 @@ msb inspect compound-interest.msbo
 msb export compound-interest.msbo --out compound-interest.mp4
 ```
 
-`msb make source.msb --config render.msbc --out movie.mp4` combines render and export while retaining `movie.msbo` beside the result.
+Without `--out`, each invocation writes to a gitignored, timestamped build directory:
+
+```text
+build/<msb-name>-<msbc-name>/<UTC-timestamp>/
+├── output.msbo
+└── movie.mp4  # `msb make` only
+```
+
+For example, `msb render source.msb --config msbc/mock.msbc` writes `output.msbo` under `build/source-mock/<timestamp>/`. `msb make` writes both artifacts there. The CLI prints the resolved paths, including during dry runs.
+
+Pass an explicit `--out` when a stable path is useful for cache reuse or resuming: `msb make source.msb --config render.msbc --out movie.mp4` retains `movie.msbo` beside the MP4.
 
 ## Containers and schemas
 

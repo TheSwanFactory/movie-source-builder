@@ -6,6 +6,7 @@ import path from "node:path";
 import { Command, InvalidArgumentError } from "commander";
 import { readArchive, writeArchiveFromDirectory } from "./archive.js";
 import { exportMovie } from "./export.js";
+import { defaultBuildPaths } from "./paths.js";
 import { loadMsb, loadMsbc, renderMovie } from "./render.js";
 import { msboOutputSchema } from "./schema.js";
 
@@ -78,7 +79,7 @@ program
 
 function renderOptions(command: Command): Command {
   return command
-    .requiredOption("-o, --out <file>")
+    .option("-o, --out <file>", "explicit output path; defaults under ./build")
     .requiredOption(
       "-c, --config <file>",
       "Movie Source Builder Configuration (.msbc)",
@@ -97,8 +98,10 @@ renderOptions(
     .description("Render an .msb with an .msbc into an .msbo")
     .argument("<file>"),
 ).action(async (file, options) => {
+  const defaults = defaultBuildPaths(file, options.config);
+  const output = options.out ?? defaults.msbo;
   const plan = await renderMovie(file, {
-    output: options.out,
+    output,
     configuration: options.config,
     dryRun: options.dryRun,
     maxCost: options.maxCost,
@@ -111,12 +114,13 @@ renderOptions(
           shots: plan.units,
           estimatedCost: plan.estimatedCost,
           providerRequests: 0,
+          output,
         },
         null,
         2,
       ),
     );
-  else console.log(`Wrote ${options.out}`);
+  else console.log(`Wrote ${output}`);
 });
 
 program
@@ -136,9 +140,12 @@ renderOptions(
     .description("Render and export in one command")
     .argument("<file>"),
 ).action(async (file, options) => {
-  const movie = options.out as string;
-  const msbo = movie.replace(/\.mp4$/i, "") + ".msbo";
-  await renderMovie(file, {
+  const defaults = defaultBuildPaths(file, options.config);
+  const movie = (options.out as string | undefined) ?? defaults.movie;
+  const msbo = options.out
+    ? movie.replace(/\.mp4$/i, "") + ".msbo"
+    : defaults.msbo;
+  const plan = await renderMovie(file, {
     output: msbo,
     configuration: options.config,
     dryRun: options.dryRun,
@@ -148,7 +155,16 @@ renderOptions(
   if (!options.dryRun) await exportMovie(msbo, movie);
   console.log(
     options.dryRun
-      ? "Dry run complete; provider requests: 0"
+      ? JSON.stringify(
+          {
+            estimatedCost: plan.estimatedCost,
+            providerRequests: 0,
+            movie,
+            msbo,
+          },
+          null,
+          2,
+        )
       : `Wrote ${movie} and ${msbo}`,
   );
 });

@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 - Added fal key setup and authentication guidance for the fal engine profiles.
 - Added real fal rendering with asset upload, model-specific request mapping, output download and normalization, request provenance, and resumable failure state.
 - Added a provider-ready six-second smoke-test bundle and an MSBC authoring and testing guide.
+- Added gitignored timestamped default outputs under `build/<msb>-<msbc>/`, while preserving explicit stable output paths for resume and reuse.
 - Embedded the effective configuration and its hash in every builder output for reproducibility.
 
 ### Changed
