@@ -4,12 +4,13 @@ import path from "node:path";
 import { readArchive, writeArchive } from "./archive.js";
 import {
   msbManifestSchema,
-  msoOutputSchema,
+  msbcConfigurationSchema,
+  msboOutputSchema,
   type MsbManifest,
-  type MsoOutput,
+  type MsbcConfiguration,
+  type MsboOutput,
 } from "./schema.js";
 
-export const DEFAULT_MODEL = "fal-ai/minimax/hailuo-02/standard/image-to-video";
 const COST_PER_SECOND = 0.05;
 export const hash = (value: Buffer | string) =>
   createHash("sha256").update(value).digest("hex");
@@ -23,9 +24,25 @@ export interface RenderPlanUnit {
 }
 export interface RenderPlan {
   manifest: MsbManifest;
+  configuration: MsbcConfiguration;
+  configurationHash: string;
   sourceHash: string;
   units: RenderPlanUnit[];
   estimatedCost: number;
+}
+
+export async function loadMsbc(file: string): Promise<{
+  configuration: MsbcConfiguration;
+  configurationHash: string;
+}> {
+  const bytes = await readFile(file);
+  const configuration = msbcConfigurationSchema.parse(
+    JSON.parse(bytes.toString("utf8")),
+  );
+  return {
+    configuration,
+    configurationHash: hash(`${JSON.stringify(configuration, null, 2)}\n`),
+  };
 }
 
 export function referencedAssets(manifest: MsbManifest): string[] {
@@ -79,9 +96,21 @@ export async function loadMsb(file: string): Promise<{
 
 export async function createPlan(
   file: string,
-  previous?: MsoOutput,
+  configurationFile: string,
+  previous?: MsboOutput,
 ): Promise<RenderPlan> {
   const loaded = await loadMsb(file);
+  const configured = await loadMsbc(configurationFile);
+  const characterIds = new Set(loaded.manifest.characters.map(({ id }) => id));
+  for (const characterId of Object.keys(configured.configuration.voices))
+    if (!characterIds.has(characterId))
+      throw new Error(
+        `configuration references unknown character voice: ${characterId}`,
+      );
+  const shotIds = new Set(loaded.manifest.shots.map(({ id }) => id));
+  for (const shotId of Object.keys(configured.configuration.shotOverrides))
+    if (!shotIds.has(shotId))
+      throw new Error(`configuration references unknown shot: ${shotId}`);
   const completed = new Map(
     previous?.shots
       .filter((shot) => shot.status === "complete")
@@ -95,9 +124,11 @@ export async function createPlan(
       JSON.stringify({
         shot,
         refs,
-        style: loaded.manifest.style,
-        output: loaded.manifest.output,
-        model: shot.provider?.model ?? DEFAULT_MODEL,
+        style: configured.configuration.style,
+        output: configured.configuration.output,
+        provider:
+          configured.configuration.shotOverrides[shot.id] ??
+          configured.configuration.video,
       }),
     );
     return {
@@ -110,6 +141,8 @@ export async function createPlan(
   });
   return {
     manifest: loaded.manifest,
+    configuration: configured.configuration,
+    configurationHash: configured.configurationHash,
     sourceHash: loaded.sourceHash,
     units,
     estimatedCost: units
@@ -126,6 +159,7 @@ async function atomicJson(file: string, value: unknown): Promise<void> {
 
 export interface RenderOptions {
   output: string;
+  configuration: string;
   dryRun?: boolean;
   maxCost?: number;
   workDir?: string;
@@ -136,16 +170,26 @@ export async function renderMock(
   source: string,
   options: RenderOptions,
 ): Promise<RenderPlan> {
-  let previous: MsoOutput | undefined;
+  let previous: MsboOutput | undefined;
   let previousEntries: Map<string, Buffer> | undefined;
   try {
     previousEntries = await readArchive(options.output);
     const raw = previousEntries.get("output.json");
-    if (raw) previous = msoOutputSchema.parse(JSON.parse(raw.toString()));
+    if (raw) previous = msboOutputSchema.parse(JSON.parse(raw.toString()));
   } catch {
     previous = undefined;
   }
-  const plan = await createPlan(source, previous);
+  const plan = await createPlan(source, options.configuration, previous);
+  const providers = new Set([
+    plan.configuration.video.provider,
+    ...Object.values(plan.configuration.shotOverrides).flatMap((override) =>
+      override.provider ? [override.provider] : [],
+    ),
+  ]);
+  if ([...providers].some((provider) => provider !== "mock"))
+    throw new Error(
+      "only the mock provider is enabled in this initial vertical slice",
+    );
   if (options.maxCost !== undefined && plan.estimatedCost > options.maxCost)
     throw new Error(
       `estimated cost $${plan.estimatedCost.toFixed(2)} exceeds --max-cost $${options.maxCost.toFixed(2)}`,
@@ -154,18 +198,19 @@ export async function renderMock(
   const work = path.resolve(options.workDir ?? `${options.output}.work`);
   await mkdir(path.join(work, "shots"), { recursive: true });
   const now = new Date().toISOString();
-  const output: MsoOutput = {
+  const output: MsboOutput = {
     formatVersion: "1.0.0",
     source: {
       hash: plan.sourceHash,
       projectId: plan.manifest.project.id,
       title: plan.manifest.project.title,
     },
-    tool: { name: "movie-source-builder", version: "0.1.0" },
+    configuration: { hash: plan.configurationHash },
+    tool: { name: "movie-source-builder", version: "0.2.0" },
     settings: {
-      width: plan.manifest.output.width,
-      height: plan.manifest.output.height,
-      frameRate: plan.manifest.output.frameRate,
+      width: plan.configuration.output.width,
+      height: plan.configuration.output.height,
+      frameRate: plan.configuration.output.frameRate,
     },
     status: "rendering",
     createdAt: previous?.createdAt ?? now,
@@ -177,8 +222,12 @@ export async function renderMock(
       id: unit.id,
       cacheKey: unit.cacheKey,
       status: "pending",
-      provider: "mock",
-      model: "lavfi-color",
+      provider:
+        plan.configuration.shotOverrides[unit.id]?.provider ??
+        plan.configuration.video.provider,
+      model:
+        plan.configuration.shotOverrides[unit.id]?.model ??
+        plan.configuration.video.model,
       estimatedCost: unit.estimatedCost,
       actualCost: 0,
       attempts: 0,
@@ -256,6 +305,10 @@ export async function renderMock(
   const archive = new Map<string, Buffer>([
     ["output.json", await readFile(path.join(work, "output.json"))],
     ["source/manifest.json", sourceManifest],
+    [
+      "configuration.msbc",
+      Buffer.from(`${JSON.stringify(plan.configuration, null, 2)}\n`),
+    ],
   ]);
   for (const shot of output.shots)
     archive.set(

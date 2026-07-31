@@ -13,6 +13,12 @@
       "required": ["hash", "projectId", "title"],
       "additionalProperties": false
     },
+    "configuration": {
+      "type": "object",
+      "properties": { "hash": { "type": "string" } },
+      "required": ["hash"],
+      "additionalProperties": false
+    },
     "tool": {
       "type": "object",
       "properties": {
@@ -95,6 +101,7 @@
   "required": [
     "formatVersion",
     "source",
+    "configuration",
     "tool",
     "settings",
     "status",

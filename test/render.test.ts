@@ -6,6 +6,7 @@ import { writeArchiveFromDirectory } from "../src/archive.js";
 import { createPlan, renderMock } from "../src/render.js";
 
 let bundle: string;
+const configuration = path.resolve("examples/compound-interest.msbc");
 
 beforeAll(async () => {
   const root = await mkdtemp(path.join(tmpdir(), "msb-render-"));
@@ -18,8 +19,8 @@ beforeAll(async () => {
 
 describe("render planning", () => {
   it("is deterministic and estimates all three units", async () => {
-    const first = await createPlan(bundle);
-    const second = await createPlan(bundle);
+    const first = await createPlan(bundle, configuration);
+    const second = await createPlan(bundle, configuration);
     expect(first.units.map((unit) => unit.cacheKey)).toEqual(
       second.units.map((unit) => unit.cacheKey),
     );
@@ -27,25 +28,27 @@ describe("render planning", () => {
   });
 
   it("enforces max cost before rendering", async () => {
-    const output = `${bundle}.mso`;
-    await expect(renderMock(bundle, { output, maxCost: 1 })).rejects.toThrow(
-      "exceeds --max-cost",
-    );
+    const output = `${bundle}.msbo`;
+    await expect(
+      renderMock(bundle, { output, configuration, maxCost: 1 }),
+    ).rejects.toThrow("exceeds --max-cost");
   });
 
   it("performs a provider-free dry run", async () => {
     const plan = await renderMock(bundle, {
-      output: `${bundle}.mso`,
+      output: `${bundle}.msbo`,
+      configuration,
       dryRun: true,
     });
     expect(plan.units).toHaveLength(3);
   });
 
   it("reuses unchanged completed shots", async () => {
-    const output = `${bundle}.reuse.mso`;
-    await renderMock(bundle, { output });
+    const output = `${bundle}.reuse.msbo`;
+    await renderMock(bundle, { output, configuration });
     const second = await createPlan(
       bundle,
+      configuration,
       JSON.parse(
         (await (await import("../src/archive.js")).readArchive(output))
           .get("output.json")!

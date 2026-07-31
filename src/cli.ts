@@ -4,13 +4,13 @@ import path from "node:path";
 import { Command, InvalidArgumentError } from "commander";
 import { readArchive, writeArchiveFromDirectory } from "./archive.js";
 import { exportMovie } from "./export.js";
-import { loadMsb, renderMock } from "./render.js";
-import { msoOutputSchema } from "./schema.js";
+import { loadMsb, loadMsbc, renderMock } from "./render.js";
+import { msboOutputSchema } from "./schema.js";
 
 const program = new Command()
   .name("msb")
   .description("Build and render Movie Source Bundles")
-  .version("0.1.0");
+  .version("0.2.0");
 const number = (value: string) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0)
@@ -42,19 +42,26 @@ program
 
 program
   .command("inspect")
-  .description("Inspect an .msb or .mso")
+  .description("Inspect an .msb, .msbc, or .msbo")
   .argument("<file>")
   .option("--json")
   .action(async (file, options) => {
-    if (file.endsWith(".mso")) {
+    if (file.endsWith(".msbo")) {
       const entries = await readArchive(file);
       const raw = entries.get("output.json");
       if (!raw) throw new Error("output.json is required");
-      const output = msoOutputSchema.parse(JSON.parse(raw.toString()));
+      const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
       console.log(
         options.json
           ? JSON.stringify(output, null, 2)
           : `${output.source.title}\nStatus: ${output.status}\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nCost: $${output.actualCost.toFixed(2)}`,
+      );
+    } else if (file.endsWith(".msbc")) {
+      const { configuration, configurationHash } = await loadMsbc(file);
+      console.log(
+        options.json
+          ? JSON.stringify({ ...configuration, configurationHash }, null, 2)
+          : `Movie Source Builder Configuration\nProvider: ${configuration.video.provider}\nModel: ${configuration.video.model}\nOutput: ${configuration.output.width}x${configuration.output.height} @ ${configuration.output.frameRate}fps\nConfiguration: ${configurationHash}`,
       );
     } else {
       const { manifest, sourceHash } = await loadMsb(file);
@@ -69,27 +76,27 @@ program
 function renderOptions(command: Command): Command {
   return command
     .requiredOption("-o, --out <file>")
+    .requiredOption(
+      "-c, --config <file>",
+      "Movie Source Builder Configuration (.msbc)",
+    )
     .option("--dry-run")
     .option("--work-dir <path>")
     .option("--concurrency <number>", "parallel requests", number, 2)
     .option("--max-cost <usd>", "maximum new generation cost", number)
     .option("--force")
-    .option("--keep-work-dir")
-    .option("--provider <name>", "mock or fal", "mock");
+    .option("--keep-work-dir");
 }
 
 renderOptions(
   program
     .command("render")
-    .description("Render an .msb into an .mso")
+    .description("Render an .msb with an .msbc into an .msbo")
     .argument("<file>"),
 ).action(async (file, options) => {
-  if (options.provider !== "mock")
-    throw new Error(
-      "fal provider is not enabled in this initial vertical slice; use --provider mock",
-    );
   const plan = await renderMock(file, {
     output: options.out,
+    configuration: options.config,
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
@@ -111,7 +118,7 @@ renderOptions(
 
 program
   .command("export")
-  .description("Export an .mso into an MP4 without provider calls")
+  .description("Export an .msbo into an MP4 without provider calls")
   .argument("<file>")
   .requiredOption("-o, --out <file>")
   .option("--force")
@@ -127,18 +134,19 @@ renderOptions(
     .argument("<file>"),
 ).action(async (file, options) => {
   const movie = options.out as string;
-  const mso = movie.replace(/\.mp4$/i, "") + ".mso";
+  const msbo = movie.replace(/\.mp4$/i, "") + ".msbo";
   await renderMock(file, {
-    output: mso,
+    output: msbo,
+    configuration: options.config,
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
   });
-  if (!options.dryRun) await exportMovie(mso, movie);
+  if (!options.dryRun) await exportMovie(msbo, movie);
   console.log(
     options.dryRun
       ? "Dry run complete; provider requests: 0"
-      : `Wrote ${movie} and ${mso}`,
+      : `Wrote ${movie} and ${msbo}`,
   );
 });
 

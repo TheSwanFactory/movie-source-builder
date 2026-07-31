@@ -3,11 +3,12 @@
 `movie-source-builder` is the npm package for portable, inspectable AI movie builds. Its executable is `msb`, and its pipeline is:
 
 ```text
-screenplay + assets → Movie Source Bundle (.msb) → Movie Source Output (.mso) → movie (.mp4)
+source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder Output (.msbo) → movie (.mp4)
 ```
 
 - `.msb` is immutable creative source: structured shots, screenplay, characters, locations, props, and reference assets.
-- `.mso` is self-contained render output: generated media, hashes, normalized settings, costs, status, and provenance.
+- `.msbc` is rendering configuration: delivery settings, visual style, provider/model selection, voice mappings, and per-shot overrides. It is JSON and must never contain credentials.
+- `.msbo` is self-contained builder output: generated scenes and audio, rendering notes, hashes, configuration snapshot, costs, status, and provenance.
 - `.mp4` is a repeatable delivery export. Export never calls an AI provider.
 
 ## Install and use
@@ -21,19 +22,22 @@ npm run build
 msb pack examples/compound-interest --out compound-interest.msb
 msb validate compound-interest.msb
 msb inspect compound-interest.msb
-msb render compound-interest.msb --out compound-interest.mso --dry-run
-msb render compound-interest.msb --out compound-interest.mso --provider mock
-msb inspect compound-interest.mso
-msb export compound-interest.mso --out compound-interest.mp4
+msb inspect examples/compound-interest.msbc
+msb render compound-interest.msb --config examples/compound-interest.msbc --out compound-interest.msbo --dry-run
+msb render compound-interest.msb --config examples/compound-interest.msbc --out compound-interest.msbo
+msb inspect compound-interest.msbo
+msb export compound-interest.msbo --out compound-interest.mp4
 ```
 
-`msb make source.msb --out movie.mp4` combines render and export while retaining `movie.mso` beside the result.
+`msb make source.msb --config render.msbc --out movie.mp4` combines render and export while retaining `movie.msbo` beside the result.
 
 ## Containers and schemas
 
-An `.msb` is ZIP-compatible and begins with `manifest.json`. It can include `screenplay.md`, `characters/`, `locations/`, `props/`, `audio/`, and `references/`. The manifest contains format/project metadata, delivery settings, global style, stable entities, and ordered generation-sized shots.
+An `.msb` is ZIP-compatible and begins with `manifest.json`. It can include `screenplay.md`, `characters/`, `locations/`, `props/`, `audio/`, and `references/`. The manifest contains creative project metadata, stable entities, and ordered generation-sized shots. A source folder is packed into this portable container with `msb pack`.
 
-An `.mso` is also ZIP-compatible. It contains `output.json`, `source/manifest.json`, and generated `shots/`. Each shot records a deterministic cache key, content hash, status, provider/model/request identity, attempts, timestamps, and estimated/actual cost.
+An `.msbc` is a JSON document validated independently from the source. It controls how an `.msb` is rendered. Keeping it separate allows the same creative source to be rendered for different providers or delivery targets.
+
+An `.msbo` is ZIP-compatible. It contains `output.json`, `source/manifest.json`, the effective `configuration.msbc`, and generated `shots/`. Each shot records a deterministic cache key, content hash, status, provider/model/request identity, attempts, timestamps, and estimated/actual cost. The output records hashes for both its source bundle and configuration.
 
 Generated schemas are published under [`schemas/`](schemas/) after `npm run build`.
 
@@ -87,6 +91,6 @@ Tests use only the mock renderer, which synthesizes tiny valid H.264/AAC clips w
 
 ## Manual paid-provider smoke test
 
-No paid command is enabled yet. When the fal.ai adapter lands, it will require `FAL_KEY` and an explicit `--provider fal`; automated tests and default commands will continue to use mocks.
+No paid command is enabled yet. When the fal.ai adapter lands, it will require `FAL_KEY` and an `.msbc` that selects the fal provider; automated tests and the example configuration will continue to use mocks.
 
 MIT licensed.

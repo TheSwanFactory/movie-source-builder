@@ -10,13 +10,16 @@ describe("mocked end-to-end movie", () => {
   it("packs, renders, and exports without paid providers", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "msb-e2e-"));
     const bundle = path.join(root, "sample.msb");
-    const output = path.join(root, "sample.mso");
+    const output = path.join(root, "sample.msbo");
     const movie = path.join(root, "sample.mp4");
     await writeArchiveFromDirectory(
       path.resolve("examples/compound-interest"),
       bundle,
     );
-    await renderMock(bundle, { output });
+    await renderMock(bundle, {
+      output,
+      configuration: path.resolve("examples/compound-interest.msbc"),
+    });
     await exportMovie(output, movie);
     expect((await stat(movie)).size).toBeGreaterThan(1_000);
   }, 60_000);

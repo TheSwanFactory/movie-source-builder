@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "formatVersion": { "type": "string", "pattern": "^1\\.\\d+\\.\\d+$" },
+    "output": {
+      "type": "object",
+      "properties": {
+        "aspectRatio": { "type": "string", "pattern": "^\\d+:\\d+$" },
+        "width": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "height": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "frameRate": { "type": "number", "exclusiveMinimum": 0 },
+        "targetDuration": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "required": [
+        "aspectRatio",
+        "width",
+        "height",
+        "frameRate",
+        "targetDuration"
+      ],
+      "additionalProperties": false
+    },
+    "style": {
+      "type": "object",
+      "properties": {
+        "visual": { "type": "string", "minLength": 1 },
+        "negative": { "type": "string" }
+      },
+      "required": ["visual"],
+      "additionalProperties": false
+    },
+    "video": {
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "model": { "type": "string", "minLength": 1 }
+      },
+      "required": ["provider", "model"],
+      "additionalProperties": false
+    },
+    "voices": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string", "minLength": 1 },
+          "voice": { "type": "string", "minLength": 1 }
+        },
+        "required": ["provider", "voice"],
+        "additionalProperties": false
+      }
+    },
+    "shotOverrides": {
+      "default": {},
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._-]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "provider": { "type": "string", "minLength": 1 },
+          "model": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "formatVersion",
+    "output",
+    "style",
+    "video",
+    "voices",
+    "shotOverrides"
+  ],
+  "additionalProperties": false
+}

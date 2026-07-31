@@ -13,41 +13,6 @@
       "required": ["id", "title"],
       "additionalProperties": false
     },
-    "output": {
-      "type": "object",
-      "properties": {
-        "aspectRatio": { "type": "string", "pattern": "^\\d+:\\d+$" },
-        "width": {
-          "type": "integer",
-          "exclusiveMinimum": 0,
-          "maximum": 9007199254740991
-        },
-        "height": {
-          "type": "integer",
-          "exclusiveMinimum": 0,
-          "maximum": 9007199254740991
-        },
-        "frameRate": { "type": "number", "exclusiveMinimum": 0 },
-        "targetDuration": { "type": "number", "exclusiveMinimum": 0 }
-      },
-      "required": [
-        "aspectRatio",
-        "width",
-        "height",
-        "frameRate",
-        "targetDuration"
-      ],
-      "additionalProperties": false
-    },
-    "style": {
-      "type": "object",
-      "properties": {
-        "visual": { "type": "string", "minLength": 1 },
-        "negative": { "type": "string" }
-      },
-      "required": ["visual"],
-      "additionalProperties": false
-    },
     "screenplay": { "type": "string", "minLength": 1 },
     "characters": {
       "type": "array",
@@ -57,16 +22,7 @@
           "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
           "name": { "type": "string", "minLength": 1 },
           "description": { "type": "string", "minLength": 1 },
-          "reference": { "type": "string", "minLength": 1 },
-          "voice": {
-            "type": "object",
-            "properties": {
-              "provider": { "type": "string" },
-              "voice": { "type": "string" }
-            },
-            "required": ["provider", "voice"],
-            "additionalProperties": false
-          }
+          "reference": { "type": "string", "minLength": 1 }
         },
         "required": ["id", "name", "description", "reference"],
         "additionalProperties": false
@@ -149,14 +105,6 @@
             "default": [],
             "type": "array",
             "items": { "type": "string" }
-          },
-          "provider": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "model": { "type": "string" }
-            },
-            "additionalProperties": false
           }
         },
         "required": [
@@ -176,8 +124,6 @@
   "required": [
     "formatVersion",
     "project",
-    "output",
-    "style",
     "characters",
     "locations",
     "props",
