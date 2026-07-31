@@ -24,5 +24,13 @@ All notable changes to this project are documented in this file.
 - **Breaking:** Removed rendering and delivery settings from `.msb` manifests so bundles contain only creative source and assets.
 - `.msbc` rejects style, duration, voice, shot, and other content-specific fields and validates required environment-variable names without storing their values.
 - Updated schemas, CLI contracts, examples, tests, and documentation for the three-format pipeline.
+- Standardized development, CI, and publishing on Node.js 24 or later.
+- Made dry-run planning provider-free for every renderer profile.
+
+### Validation
+
+- CI validates every checked-in `.msbc`, resolves every runnable engine profile, and dry-runs each profile against the smoke-test `.msb`.
+- CI independently validates representative `.msb`, `.msbc`, and `.msbo` documents against the published JSON Schemas.
+- CI fails when generated JSON Schemas differ from their checked-in files.
 
 [0.2.0]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.2.0

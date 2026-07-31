@@ -13,7 +13,7 @@ source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder
 
 ## Install and use
 
-Requires Node.js 22 or later. FFmpeg is bundled; Homebrew, apt, and a system FFmpeg are not required.
+Requires Node.js 24 or later. FFmpeg is bundled; Homebrew, apt, and a system FFmpeg are not required.
 
 ```bash
 npm install
