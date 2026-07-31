@@ -1,9 +1,9 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { writeArchiveFromDirectory } from "../src/archive.js";
-import { createPlan, renderMock } from "../src/render.js";
+import { createPlan, falInput, renderMovie } from "../src/render.js";
 
 let bundle: string;
 const configuration = path.resolve("msbc/mock.msbc");
@@ -24,23 +24,73 @@ describe("render planning", () => {
     expect(first.units.map((unit) => unit.cacheKey)).toEqual(
       second.units.map((unit) => unit.cacheKey),
     );
-    expect(first.estimatedCost).toBe(1.5);
+    expect(first.estimatedCost).toBe(0);
   });
 
   it("enforces max cost before rendering", async () => {
-    const output = `${bundle}.msbo`;
-    await expect(
-      renderMock(bundle, { output, configuration, maxCost: 1 }),
-    ).rejects.toThrow("exceeds --max-cost");
+    const previous = process.env.FAL_KEY;
+    process.env.FAL_KEY = "test-only-not-a-real-key";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            prices: [
+              {
+                endpoint_id: "fal-ai/minimax/hailuo-02/standard/image-to-video",
+                unit_price: 0.045,
+                unit: "seconds",
+                currency: "USD",
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+    try {
+      await expect(
+        renderMovie(bundle, {
+          output: `${bundle}.msbo`,
+          configuration: path.resolve("msbc/fal-hailuo-02-standard.msbc"),
+          maxCost: 1,
+        }),
+      ).rejects.toThrow("exceeds --max-cost");
+    } finally {
+      vi.unstubAllGlobals();
+      if (previous === undefined) delete process.env.FAL_KEY;
+      else process.env.FAL_KEY = previous;
+    }
   });
 
   it("performs a provider-free dry run", async () => {
-    const plan = await renderMock(bundle, {
+    const plan = await renderMovie(bundle, {
       output: `${bundle}.msbo`,
       configuration,
       dryRun: true,
     });
     expect(plan.units).toHaveLength(3);
+  });
+
+  it("maps shots to model-specific fal inputs", async () => {
+    const plan = await createPlan(bundle, configuration);
+    const shot = { ...plan.manifest.shots[0]!, duration: 6 as const };
+    expect(
+      falInput(
+        "fal-ai/minimax/hailuo-02/standard/image-to-video",
+        { aspectRatio: "16:9", width: 1366, height: 768, frameRate: 25 },
+        shot,
+        "https://example.test/start.png",
+      ),
+    ).toMatchObject({ duration: "6", resolution: "768P" });
+    expect(
+      falInput(
+        "fal-ai/ltx-2.3/image-to-video/fast",
+        { aspectRatio: "16:9", width: 1920, height: 1080, frameRate: 25 },
+        shot,
+        "https://example.test/start.png",
+      ),
+    ).toMatchObject({ duration: 6, resolution: "1080p", fps: 25 });
   });
 
   it("reports missing renderer environment variables", async () => {
@@ -67,7 +117,7 @@ describe("render planning", () => {
     );
     try {
       await expect(
-        renderMock(bundle, {
+        renderMovie(bundle, {
           output: `${bundle}.missing-env.msbo`,
           configuration: configured,
           dryRun: true,
@@ -81,7 +131,7 @@ describe("render planning", () => {
 
   it("reuses unchanged completed shots", async () => {
     const output = `${bundle}.reuse.msbo`;
-    await renderMock(bundle, { output, configuration });
+    await renderMovie(bundle, { output, configuration });
     const second = await createPlan(
       bundle,
       configuration,

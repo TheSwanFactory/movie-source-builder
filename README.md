@@ -51,7 +51,7 @@ Archive reads reject absolute paths, traversal, links, duplicate normalized entr
 
 `--dry-run` plans work without provider requests. It reports missing renderer environment variables without exposing their values. `--max-cost <usd>` rejects a render before new work begins if its estimated cost is too high. Cache keys include the shot, complete engine configuration, and referenced asset hashes. Render state is checkpointed atomically in the work directory after every completed shot.
 
-Credentials are read only from the environment by provider adapters and must never be stored in source, configuration, output, reports, caches, or logs. The initial working slice enables the mock provider; fal.ai is declared as the intended first paid adapter but is deliberately disabled until its paid smoke contract is implemented.
+Credentials are read only from the environment by provider adapters and must never be stored in source, configuration, output, reports, caches, or logs. The CLI loads a repository-local `.env` when present. The mock and fal renderers share the same validated, resumable output path; automated tests use only the mock renderer and never submit paid requests.
 
 ## Example
 
@@ -87,14 +87,14 @@ Tests use only the mock renderer, which synthesizes tiny valid H.264/AAC clips w
 
 ## Current limitations
 
-- The first vertical slice supports mocked generation; the fal.ai adapter and TTS adapters remain upcoming.
+- TTS adapters remain upcoming.
 - Source manifests must already contain generation-sized 6- or 10-second shots; `msb` does not compile prose screenplays.
 - The mock output has silent audio and solid-color video.
 - Export concatenates already-normalized clips. Mixing, subtitle authoring, and advanced timing are future work.
 - `ffmpeg-static` redistributes platform binaries; downstream distributors should review its GPL/LGPL licensing notes for their chosen build.
 
-## Manual paid-provider smoke test
+## fal rendering
 
-No paid command is enabled yet. When the fal.ai adapter lands, it will require `FAL_KEY` and an `.msbc` that selects the fal provider; automated tests and the example configuration will continue to use mocks.
+See [`msbc/README.fal.md`](msbc/README.fal.md) for API-key setup, source-reference requirements, dry runs, and real rendering commands.
 
 MIT licensed.

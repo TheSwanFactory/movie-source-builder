@@ -2,8 +2,6 @@
 
 One `FAL_KEY` with API scope authenticates calls to all fal Model APIs, including the Hailuo, Veo, and LTX profiles in this directory. Actual calls are still subject to the fal account's model access, balance, quotas, and current model availability.
 
-> **Current project status:** `movie-source-builder` 0.2.0 does not yet implement the fal renderer adapter. Setting `FAL_KEY` satisfies configuration validation, but rendering with a `provider: "fal"` profile still stops with `only the mock provider is enabled`. The profiles are ready for adapter development and direct endpoint testing; they are not yet end-to-end commands.
-
 ## Create a key
 
 1. Sign in to the [fal dashboard](https://fal.ai/dashboard/keys).
@@ -41,6 +39,20 @@ curl --fail-with-body \
 ```
 
 A successful JSON response confirms authentication. It does not confirm that a particular model is enabled, funded, or callable for the account.
+
+## Render
+
+Each fal image-to-video shot must declare exactly one explicit PNG, JPEG, WebP, or AVIF path in its `references` array. Pack the source and render it with any fal profile:
+
+```bash
+msb pack path/to/source --out movie.msb
+msb render movie.msb \
+  --config msbc/fal-hailuo-02-standard.msbc \
+  --out movie.msbo \
+  --max-cost 1.00
+```
+
+Use `--dry-run` first to inspect planned requests and estimated cost without uploading assets or calling fal.
 
 ## Engine profiles
 

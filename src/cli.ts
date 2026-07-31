@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 import { readFile, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { loadEnvFile } from "node:process";
 import path from "node:path";
 import { Command, InvalidArgumentError } from "commander";
 import { readArchive, writeArchiveFromDirectory } from "./archive.js";
 import { exportMovie } from "./export.js";
-import { loadMsb, loadMsbc, renderMock } from "./render.js";
+import { loadMsb, loadMsbc, renderMovie } from "./render.js";
 import { msboOutputSchema } from "./schema.js";
 
 const program = new Command()
   .name("msb")
   .description("Build and render Movie Source Bundles")
   .version("0.2.0");
+if (existsSync(".env")) loadEnvFile(".env");
 const number = (value: string) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0)
@@ -94,7 +97,7 @@ renderOptions(
     .description("Render an .msb with an .msbc into an .msbo")
     .argument("<file>"),
 ).action(async (file, options) => {
-  const plan = await renderMock(file, {
+  const plan = await renderMovie(file, {
     output: options.out,
     configuration: options.config,
     dryRun: options.dryRun,
@@ -135,7 +138,7 @@ renderOptions(
 ).action(async (file, options) => {
   const movie = options.out as string;
   const msbo = movie.replace(/\.mp4$/i, "") + ".msbo";
-  await renderMock(file, {
+  await renderMovie(file, {
     output: msbo,
     configuration: options.config,
     dryRun: options.dryRun,

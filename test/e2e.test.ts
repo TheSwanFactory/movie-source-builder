@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { writeArchiveFromDirectory } from "../src/archive.js";
 import { exportMovie } from "../src/export.js";
-import { renderMock } from "../src/render.js";
+import { renderMovie } from "../src/render.js";
 
 describe("mocked end-to-end movie", () => {
   it("packs, renders, and exports without paid providers", async () => {
@@ -16,7 +16,7 @@ describe("mocked end-to-end movie", () => {
       path.resolve("examples/compound-interest"),
       bundle,
     );
-    await renderMock(bundle, {
+    await renderMovie(bundle, {
       output,
       configuration: path.resolve("msbc/mock.msbc"),
     });
