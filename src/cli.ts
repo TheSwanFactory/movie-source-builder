@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile, stat } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,14 +12,18 @@ import {
   loadMsb,
   loadMsbc,
   renderMovie,
+  referencedAssets,
   verifyRendererAuthentication,
 } from "./render.js";
-import { msboOutputSchema } from "./schema.js";
+import { msbManifestSchema, msboOutputSchema } from "./schema.js";
 
+const packageJson = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+);
 const program = new Command()
   .name("msb")
   .description("Build and render Movie Source Bundles")
-  .version("0.2.1");
+  .version(packageJson.version);
 if (existsSync(".env")) loadEnvFile(".env");
 const DEFAULT_CONFIGURATION = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -136,6 +140,9 @@ renderOptions(
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
+    force: options.force,
+    concurrency: options.concurrency,
+    keepWorkDir: options.keepWorkDir,
   });
   if (options.dryRun)
     console.log(
@@ -160,6 +167,10 @@ program
   .requiredOption("-o, --out <file>")
   .option("--force")
   .action(async (file, options) => {
+    if (existsSync(options.out) && !options.force)
+      throw new Error(
+        `output exists: ${options.out}; pass --force to overwrite`,
+      );
     await exportMovie(file, options.out);
     console.log(`Wrote ${options.out}`);
   });
@@ -182,6 +193,9 @@ renderOptions(
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
+    force: options.force,
+    concurrency: options.concurrency,
+    keepWorkDir: options.keepWorkDir,
   });
   if (!options.dryRun) await exportMovie(msbo, movie);
   console.log(
@@ -204,8 +218,13 @@ async function loadManifestDirectory(directory: string): Promise<void> {
   const info = await stat(directory);
   if (!info.isDirectory()) throw new Error("pack input must be a directory");
   const raw = await readFile(path.join(directory, "msb.json"));
-  const { msbManifestSchema } = await import("./schema.js");
-  msbManifestSchema.parse(JSON.parse(raw.toString()));
+  const manifest = msbManifestSchema.parse(JSON.parse(raw.toString()));
+  for (const asset of referencedAssets(manifest)) {
+    const assetPath = path.join(directory, asset);
+    const assetInfo = await stat(assetPath).catch(() => null);
+    if (!assetInfo?.isFile())
+      throw new Error(`referenced asset is missing or invalid: ${asset}`);
+  }
 }
 
 program.parseAsync().catch((error: unknown) => {
