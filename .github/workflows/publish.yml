@@ -1,0 +1,50 @@
+name: Publish npm package
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify package
+        run: npm run check
+
+      - name: Check whether this version already exists
+        id: package
+        shell: bash
+        run: |
+          package_name=$(node --input-type=module -e "import manifest from './package.json' with { type: 'json' }; process.stdout.write(manifest.name)")
+          package_version=$(node --input-type=module -e "import manifest from './package.json' with { type: 'json' }; process.stdout.write(manifest.version)")
+          if npm view "$package_name@$package_version" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "$package_name@$package_version is already published; skipping."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Publishing $package_name@$package_version."
+          fi
+
+      - name: Publish with npm trusted publishing
+        if: steps.package.outputs.publish == 'true'
+        run: npm publish --access public

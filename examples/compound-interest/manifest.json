@@ -1,0 +1,133 @@
+{
+  "formatVersion": "1.0.0",
+  "project": {
+    "id": "compound-interest",
+    "title": "The Marshmallow Investment",
+    "description": "A thirty-second compound-interest explainer"
+  },
+  "output": {
+    "aspectRatio": "16:9",
+    "width": 512,
+    "height": 288,
+    "frameRate": 24,
+    "targetDuration": 30
+  },
+  "style": {
+    "visual": "Handmade colorful sock puppets on a cheerful cardboard bank set; warm studio light; consistent characters."
+  },
+  "screenplay": "screenplay.md",
+  "characters": [
+    {
+      "id": "sockrates",
+      "name": "Sockrates",
+      "description": "Blue sock puppet with round button eyes",
+      "reference": "characters/sockrates.svg"
+    },
+    {
+      "id": "penny",
+      "name": "Penny",
+      "description": "Orange sock puppet with green yarn hair",
+      "reference": "characters/penny.svg"
+    }
+  ],
+  "locations": [
+    {
+      "id": "cardboard-bank",
+      "description": "Cheerful handmade cardboard bank set",
+      "reference": "locations/cardboard-bank.svg"
+    }
+  ],
+  "props": [
+    {
+      "id": "marshmallow",
+      "description": "One oversized marshmallow",
+      "reference": "props/marshmallow.svg"
+    }
+  ],
+  "shots": [
+    {
+      "id": "scene-001-shot-001",
+      "duration": 10,
+      "characters": ["sockrates", "penny"],
+      "location": "cardboard-bank",
+      "dialogue": [
+        {
+          "character": "sockrates",
+          "text": "Penny, this marshmallow is my entire retirement fund.",
+          "start": 0.5,
+          "end": 4.5
+        },
+        {
+          "character": "penny",
+          "text": "Then your retirement looks delicious—and dangerously unsecured.",
+          "start": 5,
+          "end": 9.5
+        }
+      ],
+      "action": "Sockrates guards one marshmallow while Penny looks concerned.",
+      "camera": "Medium two-shot, gentle push in.",
+      "references": ["props/marshmallow.svg"],
+      "continuity": [
+        "One marshmallow remains centered",
+        "Character colors and button eyes remain stable"
+      ]
+    },
+    {
+      "id": "scene-002-shot-001",
+      "duration": 10,
+      "characters": ["sockrates", "penny"],
+      "location": "cardboard-bank",
+      "dialogue": [
+        {
+          "character": "sockrates",
+          "text": "The bank says it earns ten percent a year. What does that mean?",
+          "start": 0.3,
+          "end": 4.2
+        },
+        {
+          "character": "penny",
+          "text": "First you earn a little extra. Then the extra starts earning extra. That is compound interest.",
+          "start": 4.4,
+          "end": 9.8
+        }
+      ],
+      "action": "Penny stacks illustrated marshmallows on a tiny chart.",
+      "camera": "Locked medium shot with a brief insert of the chart.",
+      "references": ["props/marshmallow.svg"],
+      "continuity": ["Same bank set and puppet appearance"]
+    },
+    {
+      "id": "scene-003-shot-001",
+      "duration": 10,
+      "characters": ["sockrates", "penny"],
+      "location": "cardboard-bank",
+      "dialogue": [
+        {
+          "character": "sockrates",
+          "text": "So if I leave it alone, one marshmallow can become many?",
+          "start": 0.2,
+          "end": 3.6
+        },
+        {
+          "character": "penny",
+          "text": "Exactly. Your hardest financial decision is not eating the principal.",
+          "start": 3.8,
+          "end": 7.1
+        },
+        {
+          "character": "sockrates",
+          "text": "I suddenly understand both investing and sacrifice.",
+          "start": 7.2,
+          "end": 9.8
+        }
+      ],
+      "action": "Sockrates reaches for the marshmallow, then heroically pulls back.",
+      "camera": "Close-up on the temptation, then return to two-shot.",
+      "references": ["props/marshmallow.svg"],
+      "continuity": [
+        "The original marshmallow is still uneaten",
+        "Same bank set and puppet appearance"
+      ]
+    }
+  ]
+}

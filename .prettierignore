@@ -1,0 +1,5 @@
+dist
+coverage
+*.msb
+*.mso
+*.mp4

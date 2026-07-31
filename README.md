@@ -1,2 +1,92 @@
 # movie-source-builder
-scaffolding for efficiently generating long-form ai movies
+
+`movie-source-builder` is the npm package for portable, inspectable AI movie builds. Its executable is `msb`, and its pipeline is:
+
+```text
+screenplay + assets → Movie Source Bundle (.msb) → Movie Source Output (.mso) → movie (.mp4)
+```
+
+- `.msb` is immutable creative source: structured shots, screenplay, characters, locations, props, and reference assets.
+- `.mso` is self-contained render output: generated media, hashes, normalized settings, costs, status, and provenance.
+- `.mp4` is a repeatable delivery export. Export never calls an AI provider.
+
+## Install and use
+
+Requires Node.js 22 or later. FFmpeg is bundled; Homebrew, apt, and a system FFmpeg are not required.
+
+```bash
+npm install
+npm run build
+
+msb pack examples/compound-interest --out compound-interest.msb
+msb validate compound-interest.msb
+msb inspect compound-interest.msb
+msb render compound-interest.msb --out compound-interest.mso --dry-run
+msb render compound-interest.msb --out compound-interest.mso --provider mock
+msb inspect compound-interest.mso
+msb export compound-interest.mso --out compound-interest.mp4
+```
+
+`msb make source.msb --out movie.mp4` combines render and export while retaining `movie.mso` beside the result.
+
+## Containers and schemas
+
+An `.msb` is ZIP-compatible and begins with `manifest.json`. It can include `screenplay.md`, `characters/`, `locations/`, `props/`, `audio/`, and `references/`. The manifest contains format/project metadata, delivery settings, global style, stable entities, and ordered generation-sized shots.
+
+An `.mso` is also ZIP-compatible. It contains `output.json`, `source/manifest.json`, and generated `shots/`. Each shot records a deterministic cache key, content hash, status, provider/model/request identity, attempts, timestamps, and estimated/actual cost.
+
+Generated schemas are published under [`schemas/`](schemas/) after `npm run build`.
+
+## Safety and cost controls
+
+Archive reads reject absolute paths, traversal, links, duplicate normalized entries, oversized entries, excessive entry counts, and excessive expansion. All referenced assets and entity IDs are verified before rendering.
+
+`--dry-run` plans work without provider requests. `--max-cost <usd>` rejects a render before new work begins if its estimated cost is too high. Cache keys include the shot, style, output settings, model, and referenced asset hashes. Render state is checkpointed atomically in the work directory after every completed shot.
+
+Credentials are read only by provider adapters and must never be stored in source, output, reports, caches, or logs. The initial working slice enables the mock provider; fal.ai is declared as the intended first paid adapter but is deliberately disabled until its paid smoke contract is implemented.
+
+## Example
+
+[`examples/compound-interest`](examples/compound-interest) contains “The Marshmallow Investment”: two stable sock puppets, one location, a prop, timed alternating dialogue, continuity constraints, and three 10-second shots. Placeholder SVG references are safe to redistribute.
+
+## Development
+
+```bash
+npm run format
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run smoke
+# all CI-equivalent checks
+npm run check
+```
+
+## Publishing
+
+Merges to `main` run [`.github/workflows/publish.yml`](.github/workflows/publish.yml). The workflow verifies the package and publishes the version in `package.json` when that version does not already exist on npm. It uses npm trusted publishing through GitHub OIDC; no long-lived `NPM_TOKEN` is required.
+
+Configure the npm trusted publisher with:
+
+- Organization or user: `TheSwanFactory`
+- Repository: `movie-source-builder`
+- Workflow filename: `publish.yml`
+- Allowed action: `npm publish`
+
+The release job uses a GitHub-hosted runner, Node.js 24, npm 11.5.1 or later, and `id-token: write`. Trusted publishing automatically attaches provenance for eligible public packages. Increment `package.json` before merging a release that should publish a new version.
+
+Tests use only the mock renderer, which synthesizes tiny valid H.264/AAC clips with the bundled FFmpeg. They never submit paid requests.
+
+## Current limitations
+
+- The first vertical slice supports mocked generation; the fal.ai adapter and TTS adapters remain upcoming.
+- Source manifests must already contain generation-sized 6- or 10-second shots; `msb` does not compile prose screenplays.
+- The mock output has silent audio and solid-color video.
+- Export concatenates already-normalized clips. Mixing, subtitle authoring, and advanced timing are future work.
+- `ffmpeg-static` redistributes platform binaries; downstream distributors should review its GPL/LGPL licensing notes for their chosen build.
+
+## Manual paid-provider smoke test
+
+No paid command is enabled yet. When the fal.ai adapter lands, it will require `FAL_KEY` and an explicit `--provider fal`; automated tests and default commands will continue to use mocks.
+
+MIT licensed.
