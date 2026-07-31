@@ -62,6 +62,19 @@ npm run smoke
 npm run check
 ```
 
+## Publishing
+
+Merges to `main` run [`.github/workflows/publish.yml`](.github/workflows/publish.yml). The workflow verifies the package and publishes the version in `package.json` when that version does not already exist on npm. It uses npm trusted publishing through GitHub OIDC; no long-lived `NPM_TOKEN` is required.
+
+Configure the npm trusted publisher with:
+
+- Organization or user: `TheSwanFactory`
+- Repository: `movie-source-builder`
+- Workflow filename: `publish.yml`
+- Allowed action: `npm publish`
+
+The release job uses a GitHub-hosted runner, Node.js 24, npm 11.5.1 or later, and `id-token: write`. Trusted publishing automatically attaches provenance for eligible public packages. Increment `package.json` before merging a release that should publish a new version.
+
 Tests use only the mock renderer, which synthesizes tiny valid H.264/AAC clips with the bundled FFmpeg. They never submit paid requests.
 
 ## Current limitations
