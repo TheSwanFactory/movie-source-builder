@@ -8,13 +8,13 @@
 
 ## Container handling
 
-**Decision:** Treat `.msb` and `.mso` as ZIP containers but validate all central-directory entries before reading payloads.  
+**Decision:** Treat `.msb` and `.msbo` as ZIP containers but validate all central-directory entries before reading payloads. Treat `.msbc` as a separately validated JSON configuration.
 **Rationale:** Portable and inspectable while permitting traversal, duplicate, link, and expansion defenses.  
 **Alternatives considered:** Directory-only formats and custom binary containers.
 
 ## Output lifecycle
 
-**Decision:** Build output in a work directory with atomic JSON checkpoints, then package a self-contained `.mso`.  
+**Decision:** Build output in a work directory with atomic JSON checkpoints, then package a self-contained `.msbo`.
 **Rationale:** ZIP mutation is poorly suited to durable incremental state; atomic workspace state provides clean recovery.  
 **Alternatives considered:** Rewriting the archive after every shot.
 

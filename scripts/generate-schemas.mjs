@@ -1,7 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { format } from "prettier";
 import { z } from "zod";
-import { msbManifestSchema, msoOutputSchema } from "../dist/schema.js";
+import {
+  msbManifestSchema,
+  msbcFileSchema,
+  msboOutputSchema,
+} from "../dist/schema.js";
 
 await mkdir("schemas", { recursive: true });
 const writeSchema = async (file, schema) =>
@@ -11,4 +15,5 @@ const writeSchema = async (file, schema) =>
   );
 
 await writeSchema("schemas/msb-manifest.schema.json", msbManifestSchema);
-await writeSchema("schemas/mso-output.schema.json", msoOutputSchema);
+await writeSchema("schemas/msbc-configuration.schema.json", msbcFileSchema);
+await writeSchema("schemas/msbo-output.schema.json", msboOutputSchema);

@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "extends": "formats/landscape-768p-25fps.msbc",
+  "renderer": {
+    "provider": "fal",
+    "model": "fal-ai/minimax/hailuo-02/standard/image-to-video",
+    "requiredEnvironmentVariables": ["FAL_KEY"]
+  }
+}

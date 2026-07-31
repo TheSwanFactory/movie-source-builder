@@ -1,0 +1,23 @@
+{
+  "formatVersion": "1.0.0",
+  "project": {
+    "id": "renderer-smoke-test",
+    "title": "Renderer Smoke Test",
+    "description": "A single six-second image-to-video shot for testing MSBC engine configurations"
+  },
+  "characters": [],
+  "locations": [],
+  "props": [],
+  "shots": [
+    {
+      "id": "smoke-shot-001",
+      "duration": 6,
+      "characters": [],
+      "dialogue": [],
+      "action": "The geometric shapes drift slowly across the frame with gentle parallax.",
+      "camera": "Static wide shot.",
+      "references": ["start.png"],
+      "continuity": []
+    }
+  ]
+}

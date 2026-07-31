@@ -12,10 +12,8 @@ describe("archives", () => {
   it("round trips deterministic entries", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "msb-archive-"));
     const output = path.join(root, "test.msb");
-    await writeArchive(new Map([["manifest.json", Buffer.from("{}")]]), output);
-    expect((await readArchive(output)).get("manifest.json")?.toString()).toBe(
-      "{}",
-    );
+    await writeArchive(new Map([["msb.json", Buffer.from("{}")]]), output);
+    expect((await readArchive(output)).get("msb.json")?.toString()).toBe("{}");
   });
 
   it("rejects links in source directories", async () => {

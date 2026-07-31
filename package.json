@@ -1,6 +1,6 @@
 {
   "name": "movie-source-builder",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Build, validate, render, and export portable AI movie source bundles",
   "type": "module",
   "bin": {
@@ -15,20 +15,23 @@
   "files": [
     "dist",
     "schemas",
+    "msbc",
+    "examples/smoke-test.msb",
     "README.md",
     "LICENSE"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node scripts/generate-schemas.mjs",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run smoke",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run schema:check && npm run smoke",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "schema:check": "npm run build && git diff --exit-code -- schemas",
     "smoke": "node dist/cli.js --help"
   },
   "dependencies": {
@@ -42,9 +45,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.13.3",
     "@types/yauzl": "^2.10.3",
     "@types/yazl": "^3.3.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.8.0",

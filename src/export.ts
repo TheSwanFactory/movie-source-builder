@@ -4,7 +4,7 @@ import { execa } from "execa";
 import ffmpeg from "ffmpeg-static";
 import { readArchive } from "./archive.js";
 import { hash } from "./render.js";
-import { msoOutputSchema } from "./schema.js";
+import { msboOutputSchema } from "./schema.js";
 
 export async function exportMovie(
   input: string,
@@ -13,14 +13,14 @@ export async function exportMovie(
   const ffmpegPath = ffmpeg as unknown as string | null;
   if (!ffmpegPath) throw new Error("bundled ffmpeg is unavailable");
   const entries = await readArchive(input);
-  const raw = entries.get("output.json");
-  if (!raw) throw new Error("output.json is required");
-  const output = msoOutputSchema.parse(JSON.parse(raw.toString()));
+  const raw = entries.get("msbo.json");
+  if (!raw) throw new Error("msbo.json is required");
+  const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
   if (
     output.status !== "complete" ||
     output.shots.some((shot) => shot.status !== "complete")
   )
-    throw new Error("cannot export an incomplete .mso");
+    throw new Error("cannot export an incomplete .msbo");
   const work = path.resolve(`${outputFile}.export-${process.pid}`);
   await mkdir(work, { recursive: true });
   try {

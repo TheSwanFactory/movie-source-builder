@@ -143,6 +143,9 @@ vite.config.ts.timestamp-*
 .vite/
 
 # movie-source-builder artifacts
-*.mso
+/build/
+*.msb
+!examples/smoke-test.msb
+*.msbo
 *.mp4
-.msb-work/
+*.msbo.work/

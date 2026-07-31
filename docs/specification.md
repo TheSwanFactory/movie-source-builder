@@ -17,13 +17,13 @@ Acceptance: a valid bundle reports metadata and referenced assets; unsafe archiv
 
 ### Story 2 — Plan and render safely (P1)
 
-A creator previews normalized work, credentials, cache reuse, and maximum estimated cost, then renders into a recoverable `.mso` with bounded concurrency.
+A creator selects a versioned `.msbc`, previews normalized work, credentials, cache reuse, and maximum estimated cost, then renders into a recoverable `.msbo` with bounded concurrency.
 
 Acceptance: dry-run makes no paid requests; cost limits are enforced before scheduling; completed work is reusable; interruption leaves valid state.
 
 ### Story 3 — Export repeatedly (P1)
 
-A creator exports a completed `.mso` into a playable MP4 without contacting generation providers.
+A creator exports a completed `.msbo` into a playable MP4 without contacting generation providers.
 
 Acceptance: export verifies hashes, normalizes media, and produces the same delivery result for the same output and settings.
 
@@ -42,7 +42,7 @@ Acceptance: all recorded data is machine-readable and excludes credentials.
 ## Functional Requirements
 
 - FR-001: The npm package is named `movie-source-builder` and exposes the `msb` executable.
-- FR-002: The system validates versioned ZIP-compatible `.msb` and `.mso` containers against published schemas.
+- FR-002: The system validates versioned ZIP-compatible `.msb` and `.msbo` containers plus JSON `.msbc` configurations against published schemas.
 - FR-003: The CLI provides `validate`, `inspect`, `render`, `export`, and `make` commands with stable nonzero failures.
 - FR-004: Every source asset reference is relative, safe, present, and verified before generation.
 - FR-005: Planning is deterministic, reports estimated cost and cache reuse, detects missing credentials, and supports a zero-cost dry run.
@@ -50,15 +50,17 @@ Acceptance: all recorded data is machine-readable and excludes credentials.
 - FR-007: A maximum cost is enforced before newly scheduled work can exceed it, including concurrent work.
 - FR-008: Completed work is reusable by deterministic cache key and renders can resume after interruption.
 - FR-009: Export never invokes an AI provider and rejects incomplete, missing, or tampered output.
-- FR-010: Provider credentials never appear in bundles, output, reports, caches, or logs.
+- FR-010: Provider credentials never appear in bundles, configurations, output, reports, caches, or logs; `.msbc` records only required environment-variable names.
+- FR-013: A `.msbc` describes a reusable rendering engine and contains no project, style, character, voice, shot, duration, or other content-specific fields.
 - FR-011: A distributable 30-second, three-shot example demonstrates validation, planning, mocked rendering, and export.
 - FR-012: Automated tests never issue paid requests.
 
 ## Key Entities
 
 - **Movie Source Bundle**: immutable creative intent, manifest, screenplay, and source assets.
+- **Movie Source Builder Configuration**: portable, content-independent engine definition with renderer identity, technical output settings, and required environment-variable names.
 - **Shot**: stable generation-sized unit with timing, cast, location, dialogue, action, camera, references, and continuity.
-- **Movie Source Output**: self-contained generated media and recoverable render state derived from a source bundle.
+- **Movie Source Builder Output**: self-contained generated media, effective configuration, and recoverable render state derived from a source bundle.
 - **Render Plan**: normalized units, cache keys, estimated costs, requirements, and reuse decisions.
 - **Provider Record**: provider/model, request ID, retry history, cost, timing, and hashes.
 

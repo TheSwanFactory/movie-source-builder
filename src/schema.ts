@@ -29,17 +29,6 @@ export const msbManifestSchema = z.object({
     title: z.string().min(1),
     description: z.string().optional(),
   }),
-  output: z.object({
-    aspectRatio: z.string().regex(/^\d+:\d+$/),
-    width: z.number().int().positive(),
-    height: z.number().int().positive(),
-    frameRate: z.number().positive(),
-    targetDuration: z.number().positive(),
-  }),
-  style: z.object({
-    visual: z.string().min(1),
-    negative: z.string().optional(),
-  }),
   screenplay: relativePath.optional(),
   characters: z.array(
     z.object({
@@ -47,7 +36,6 @@ export const msbManifestSchema = z.object({
       name: z.string().min(1),
       description: z.string().min(1),
       reference: relativePath,
-      voice: z.object({ provider: z.string(), voice: z.string() }).optional(),
     }),
   ),
   locations: z
@@ -81,15 +69,52 @@ export const msbManifestSchema = z.object({
         camera: z.string().min(1),
         references: z.array(relativePath).default([]),
         continuity: z.array(z.string()).default([]),
-        provider: z
-          .object({ name: z.string().optional(), model: z.string().optional() })
-          .optional(),
       }),
     )
     .min(1),
 });
 
 export type MsbManifest = z.infer<typeof msbManifestSchema>;
+
+const msbcOutputSchema = z.object({
+  aspectRatio: z.string().regex(/^\d+:\d+$/),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  frameRate: z.number().positive(),
+});
+
+const msbcRendererSchema = z.object({
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  requiredEnvironmentVariables: z
+    .array(z.string().regex(/^[A-Z_][A-Z0-9_]*$/))
+    .refine(
+      (variables) => new Set(variables).size === variables.length,
+      "environment variable names must be unique",
+    )
+    .default([]),
+});
+
+export const msbcConfigurationSchema = z
+  .object({
+    version: z.string().regex(/^1\.\d+\.\d+$/),
+    output: msbcOutputSchema,
+    renderer: msbcRendererSchema,
+  })
+  .strict();
+
+export type MsbcConfiguration = z.infer<typeof msbcConfigurationSchema>;
+
+export const msbcFileSchema = z
+  .object({
+    version: z.string().regex(/^1\.\d+\.\d+$/),
+    extends: relativePath.optional(),
+    output: msbcOutputSchema.partial().optional(),
+    renderer: msbcRendererSchema.partial().optional(),
+  })
+  .strict();
+
+export type MsbcFile = z.infer<typeof msbcFileSchema>;
 
 export const shotResultSchema = z.object({
   id,
@@ -108,9 +133,10 @@ export const shotResultSchema = z.object({
   completedAt: z.string().datetime().optional(),
 });
 
-export const msoOutputSchema = z.object({
+export const msboOutputSchema = z.object({
   formatVersion: z.string().regex(/^1\.\d+\.\d+$/),
   source: z.object({ hash: z.string(), projectId: id, title: z.string() }),
+  configuration: z.object({ hash: z.string() }),
   tool: z.object({
     name: z.literal("movie-source-builder"),
     version: z.string(),
@@ -129,4 +155,4 @@ export const msoOutputSchema = z.object({
   warnings: z.array(z.string()),
 });
 
-export type MsoOutput = z.infer<typeof msoOutputSchema>;
+export type MsboOutput = z.infer<typeof msboOutputSchema>;

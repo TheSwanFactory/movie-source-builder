@@ -36,7 +36,7 @@ schemas/           generated JSON Schemas
 1. Package and command contract.
 2. Schemas and safe archives.
 3. Deterministic planning and cost controls.
-4. Mocked/provider rendering and atomic MSO state.
+4. Mocked/provider rendering and atomic MSBO state.
 5. Provider-free FFmpeg export.
 6. Example, documentation, and CI verification.
 

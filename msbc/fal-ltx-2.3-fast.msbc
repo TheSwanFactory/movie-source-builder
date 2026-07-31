@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "extends": "formats/landscape-1080p-25fps.msbc",
+  "renderer": {
+    "provider": "fal",
+    "model": "fal-ai/ltx-2.3/image-to-video/fast",
+    "requiredEnvironmentVariables": ["FAL_KEY"]
+  }
+}
