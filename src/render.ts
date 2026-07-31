@@ -253,6 +253,7 @@ export interface RenderOptions {
   maxCost?: number;
   workDir?: string;
   force?: boolean;
+  concurrency?: number;
   keepWorkDir?: boolean;
 }
 
@@ -404,7 +405,10 @@ export async function renderMovie(
   };
 
   await Promise.all(
-    Array.from({ length: Math.min(concurrency, plan.units.length) }, renderWorker),
+    Array.from(
+      { length: Math.min(concurrency, plan.units.length) },
+      renderWorker,
+    ),
   );
   output.status = "complete";
   output.updatedAt = new Date().toISOString();
