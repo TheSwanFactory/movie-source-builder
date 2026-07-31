@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -41,6 +41,42 @@ describe("render planning", () => {
       dryRun: true,
     });
     expect(plan.units).toHaveLength(3);
+  });
+
+  it("reports missing renderer environment variables", async () => {
+    const required = "MSB_TEST_REQUIRED_RENDERER_TOKEN";
+    const previous = process.env[required];
+    delete process.env[required];
+    const configured = `${bundle}.required-env.msbc`;
+    await writeFile(
+      configured,
+      JSON.stringify({
+        formatVersion: "1.0.0",
+        output: {
+          aspectRatio: "16:9",
+          width: 512,
+          height: 288,
+          frameRate: 24,
+        },
+        renderer: {
+          provider: "mock",
+          model: "lavfi-color",
+          requiredEnvironmentVariables: [required],
+        },
+      }),
+    );
+    try {
+      await expect(
+        renderMock(bundle, {
+          output: `${bundle}.missing-env.msbo`,
+          configuration: configured,
+          dryRun: true,
+        }),
+      ).rejects.toThrow(required);
+    } finally {
+      if (previous === undefined) delete process.env[required];
+      else process.env[required] = previous;
+    }
   });
 
   it("reuses unchanged completed shots", async () => {

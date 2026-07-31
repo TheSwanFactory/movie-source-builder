@@ -25,9 +25,28 @@ describe("schemas", () => {
   });
 
   it("accepts the example configuration", () => {
-    expect(msbcConfigurationSchema.parse(configuration).video.provider).toBe(
+    expect(msbcConfigurationSchema.parse(configuration).renderer.provider).toBe(
       "mock",
     );
+  });
+
+  it("rejects content-specific configuration", () => {
+    expect(() =>
+      msbcConfigurationSchema.parse({ ...configuration, style: {} }),
+    ).toThrow();
+  });
+
+  it("validates required renderer environment variable names", () => {
+    const renderer = configuration.renderer as Record<string, unknown>;
+    expect(() =>
+      msbcConfigurationSchema.parse({
+        ...configuration,
+        renderer: {
+          ...renderer,
+          requiredEnvironmentVariables: ["FAL_KEY", "FAL_KEY"],
+        },
+      }),
+    ).toThrow();
   });
 
   it("requires complete output structure", () => {

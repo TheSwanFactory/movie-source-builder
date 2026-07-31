@@ -101,16 +101,6 @@ export async function createPlan(
 ): Promise<RenderPlan> {
   const loaded = await loadMsb(file);
   const configured = await loadMsbc(configurationFile);
-  const characterIds = new Set(loaded.manifest.characters.map(({ id }) => id));
-  for (const characterId of Object.keys(configured.configuration.voices))
-    if (!characterIds.has(characterId))
-      throw new Error(
-        `configuration references unknown character voice: ${characterId}`,
-      );
-  const shotIds = new Set(loaded.manifest.shots.map(({ id }) => id));
-  for (const shotId of Object.keys(configured.configuration.shotOverrides))
-    if (!shotIds.has(shotId))
-      throw new Error(`configuration references unknown shot: ${shotId}`);
   const completed = new Map(
     previous?.shots
       .filter((shot) => shot.status === "complete")
@@ -124,11 +114,7 @@ export async function createPlan(
       JSON.stringify({
         shot,
         refs,
-        style: configured.configuration.style,
-        output: configured.configuration.output,
-        provider:
-          configured.configuration.shotOverrides[shot.id] ??
-          configured.configuration.video,
+        engine: configured.configuration,
       }),
     );
     return {
@@ -180,13 +166,15 @@ export async function renderMock(
     previous = undefined;
   }
   const plan = await createPlan(source, options.configuration, previous);
-  const providers = new Set([
-    plan.configuration.video.provider,
-    ...Object.values(plan.configuration.shotOverrides).flatMap((override) =>
-      override.provider ? [override.provider] : [],
-    ),
-  ]);
-  if ([...providers].some((provider) => provider !== "mock"))
+  const missingEnvironmentVariables =
+    plan.configuration.renderer.requiredEnvironmentVariables.filter(
+      (name) => !process.env[name],
+    );
+  if (missingEnvironmentVariables.length > 0)
+    throw new Error(
+      `missing required renderer environment variables: ${missingEnvironmentVariables.join(", ")}`,
+    );
+  if (plan.configuration.renderer.provider !== "mock")
     throw new Error(
       "only the mock provider is enabled in this initial vertical slice",
     );
@@ -222,12 +210,8 @@ export async function renderMock(
       id: unit.id,
       cacheKey: unit.cacheKey,
       status: "pending",
-      provider:
-        plan.configuration.shotOverrides[unit.id]?.provider ??
-        plan.configuration.video.provider,
-      model:
-        plan.configuration.shotOverrides[unit.id]?.model ??
-        plan.configuration.video.model,
+      provider: plan.configuration.renderer.provider,
+      model: plan.configuration.renderer.model,
       estimatedCost: unit.estimatedCost,
       actualCost: 0,
       attempts: 0,

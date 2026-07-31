@@ -61,7 +61,7 @@ program
       console.log(
         options.json
           ? JSON.stringify({ ...configuration, configurationHash }, null, 2)
-          : `Movie Source Builder Configuration\nProvider: ${configuration.video.provider}\nModel: ${configuration.video.model}\nOutput: ${configuration.output.width}x${configuration.output.height} @ ${configuration.output.frameRate}fps\nConfiguration: ${configurationHash}`,
+          : `Movie Source Builder Configuration\nProvider: ${configuration.renderer.provider}\nModel: ${configuration.renderer.model}\nRequired environment: ${configuration.renderer.requiredEnvironmentVariables.join(", ") || "none"}\nOutput: ${configuration.output.width}x${configuration.output.height} @ ${configuration.output.frameRate}fps\nConfiguration: ${configurationHash}`,
       );
     } else {
       const { manifest, sourceHash } = await loadMsb(file);

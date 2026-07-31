@@ -6,7 +6,7 @@ ZIP-compatible immutable creative source containing `manifest.json`, screenplay,
 
 ## Movie Source Builder Configuration (`.msbc`)
 
-JSON rendering instructions containing version, output dimensions and timing, visual style, default video provider/model, voice mappings, and per-shot provider/model overrides. Configuration is independently validated and contains no credentials.
+Content-independent JSON engine definition containing its format version, technical output settings, renderer provider/model, and the names of environment variables required to call that renderer. It never references a project, style, character, voice, shot, or duration, and it contains no environment-variable values or credentials.
 
 ## Shot
 

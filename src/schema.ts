@@ -76,39 +76,28 @@ export const msbManifestSchema = z.object({
 
 export type MsbManifest = z.infer<typeof msbManifestSchema>;
 
-export const msbcConfigurationSchema = z.object({
-  formatVersion: z.string().regex(/^1\.\d+\.\d+$/),
-  output: z.object({
-    aspectRatio: z.string().regex(/^\d+:\d+$/),
-    width: z.number().int().positive(),
-    height: z.number().int().positive(),
-    frameRate: z.number().positive(),
-    targetDuration: z.number().positive(),
-  }),
-  style: z.object({
-    visual: z.string().min(1),
-    negative: z.string().optional(),
-  }),
-  video: z.object({
-    provider: z.string().min(1),
-    model: z.string().min(1),
-  }),
-  voices: z
-    .record(
-      id,
-      z.object({ provider: z.string().min(1), voice: z.string().min(1) }),
-    )
-    .default({}),
-  shotOverrides: z
-    .record(
-      id,
-      z.object({
-        provider: z.string().min(1).optional(),
-        model: z.string().min(1).optional(),
-      }),
-    )
-    .default({}),
-});
+export const msbcConfigurationSchema = z
+  .object({
+    formatVersion: z.string().regex(/^1\.\d+\.\d+$/),
+    output: z.object({
+      aspectRatio: z.string().regex(/^\d+:\d+$/),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+      frameRate: z.number().positive(),
+    }),
+    renderer: z.object({
+      provider: z.string().min(1),
+      model: z.string().min(1),
+      requiredEnvironmentVariables: z
+        .array(z.string().regex(/^[A-Z_][A-Z0-9_]*$/))
+        .refine(
+          (variables) => new Set(variables).size === variables.length,
+          "environment variable names must be unique",
+        )
+        .default([]),
+    }),
+  })
+  .strict();
 
 export type MsbcConfiguration = z.infer<typeof msbcConfigurationSchema>;
 

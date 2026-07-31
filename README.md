@@ -7,7 +7,7 @@ source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder
 ```
 
 - `.msb` is immutable creative source: structured shots, screenplay, characters, locations, props, and reference assets.
-- `.msbc` is rendering configuration: delivery settings, visual style, provider/model selection, voice mappings, and per-shot overrides. It is JSON and must never contain credentials.
+- `.msbc` is content-independent engine configuration: renderer provider/model, required environment-variable names, and technical output settings. It is JSON and never contains credential values.
 - `.msbo` is self-contained builder output: generated scenes and audio, rendering notes, hashes, configuration snapshot, costs, status, and provenance.
 - `.mp4` is a repeatable delivery export. Export never calls an AI provider.
 
@@ -35,7 +35,7 @@ msb export compound-interest.msbo --out compound-interest.mp4
 
 An `.msb` is ZIP-compatible and begins with `manifest.json`. It can include `screenplay.md`, `characters/`, `locations/`, `props/`, `audio/`, and `references/`. The manifest contains creative project metadata, stable entities, and ordered generation-sized shots. A source folder is packed into this portable container with `msb pack`.
 
-An `.msbc` is a JSON document validated independently from the source. It controls how an `.msb` is rendered. Keeping it separate allows the same creative source to be rendered for different providers or delivery targets.
+An `.msbc` is a JSON document validated independently from the source. It defines a reusable rendering engine and cannot contain style, character, voice, shot, duration, or other content-specific instructions. `renderer.requiredEnvironmentVariables` lists the environment-variable names that must be present before the renderer is called; their values remain outside every artifact. The same engine configuration can render any compatible `.msb`.
 
 An `.msbo` is ZIP-compatible. It contains `output.json`, `source/manifest.json`, the effective `configuration.msbc`, and generated `shots/`. Each shot records a deterministic cache key, content hash, status, provider/model/request identity, attempts, timestamps, and estimated/actual cost. The output records hashes for both its source bundle and configuration.
 
@@ -47,9 +47,9 @@ Design context, implementation planning, contracts, and other project notes are 
 
 Archive reads reject absolute paths, traversal, links, duplicate normalized entries, oversized entries, excessive entry counts, and excessive expansion. All referenced assets and entity IDs are verified before rendering.
 
-`--dry-run` plans work without provider requests. `--max-cost <usd>` rejects a render before new work begins if its estimated cost is too high. Cache keys include the shot, style, output settings, model, and referenced asset hashes. Render state is checkpointed atomically in the work directory after every completed shot.
+`--dry-run` plans work without provider requests. It reports missing renderer environment variables without exposing their values. `--max-cost <usd>` rejects a render before new work begins if its estimated cost is too high. Cache keys include the shot, complete engine configuration, and referenced asset hashes. Render state is checkpointed atomically in the work directory after every completed shot.
 
-Credentials are read only by provider adapters and must never be stored in source, output, reports, caches, or logs. The initial working slice enables the mock provider; fal.ai is declared as the intended first paid adapter but is deliberately disabled until its paid smoke contract is implemented.
+Credentials are read only from the environment by provider adapters and must never be stored in source, configuration, output, reports, caches, or logs. The initial working slice enables the mock provider; fal.ai is declared as the intended first paid adapter but is deliberately disabled until its paid smoke contract is implemented.
 
 ## Example
 
