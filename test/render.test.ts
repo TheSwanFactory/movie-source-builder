@@ -6,7 +6,7 @@ import { writeArchiveFromDirectory } from "../src/archive.js";
 import { createPlan, renderMock } from "../src/render.js";
 
 let bundle: string;
-const configuration = path.resolve("examples/compound-interest.msbc");
+const configuration = path.resolve("msbc/mock.msbc");
 
 beforeAll(async () => {
   const root = await mkdtemp(path.join(tmpdir(), "msb-render-"));

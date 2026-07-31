@@ -22,9 +22,9 @@ npm run build
 msb pack examples/compound-interest --out compound-interest.msb
 msb validate compound-interest.msb
 msb inspect compound-interest.msb
-msb inspect examples/compound-interest.msbc
-msb render compound-interest.msb --config examples/compound-interest.msbc --out compound-interest.msbo --dry-run
-msb render compound-interest.msb --config examples/compound-interest.msbc --out compound-interest.msbo
+msb inspect msbc/mock.msbc
+msb render compound-interest.msb --config msbc/mock.msbc --out compound-interest.msbo --dry-run
+msb render compound-interest.msb --config msbc/mock.msbc --out compound-interest.msbo
 msb inspect compound-interest.msbo
 msb export compound-interest.msbo --out compound-interest.mp4
 ```
@@ -40,6 +40,8 @@ An `.msbc` is a JSON document validated independently from the source. It define
 An `.msbo` is ZIP-compatible. It contains `output.json`, `source/manifest.json`, the effective `configuration.msbc`, and generated `shots/`. Each shot records a deterministic cache key, content hash, status, provider/model/request identity, attempts, timestamps, and estimated/actual cost. The output records hashes for both its source bundle and configuration.
 
 Generated schemas are published under [`schemas/`](schemas/) after `npm run build`.
+
+Ready-to-use engine profiles are cataloged under [`msbc/`](msbc/README.md). The local mock profile is supported today; paid-provider profiles document their model IDs and required environment variables ahead of adapter support.
 
 Design context, implementation planning, contracts, and other project notes are collected under [`docs/`](docs/README.md).
 

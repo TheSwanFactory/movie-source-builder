@@ -15,6 +15,7 @@
   "files": [
     "dist",
     "schemas",
+    "msbc",
     "README.md",
     "LICENSE"
   ],

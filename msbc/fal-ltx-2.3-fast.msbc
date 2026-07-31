@@ -1,0 +1,14 @@
+{
+  "formatVersion": "1.0.0",
+  "output": {
+    "aspectRatio": "16:9",
+    "width": 1280,
+    "height": 720,
+    "frameRate": 24
+  },
+  "renderer": {
+    "provider": "fal",
+    "model": "fal-ai/ltx-2.3/image-to-video/fast",
+    "requiredEnvironmentVariables": ["FAL_KEY"]
+  }
+}

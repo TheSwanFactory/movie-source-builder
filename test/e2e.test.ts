@@ -18,7 +18,7 @@ describe("mocked end-to-end movie", () => {
     );
     await renderMock(bundle, {
       output,
-      configuration: path.resolve("examples/compound-interest.msbc"),
+      configuration: path.resolve("msbc/mock.msbc"),
     });
     await exportMovie(output, movie);
     expect((await stat(movie)).size).toBeGreaterThan(1_000);

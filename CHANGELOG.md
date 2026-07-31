@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
 - Added the content-independent Movie Source Builder Configuration (`.msbc`) format for renderer provider/model, required environment-variable names, and technical output settings.
 - Added generated JSON schemas for `.msbc` configuration and `.msbo` output documents.
 - Added configuration inspection and an example render configuration.
+- Added an `msbc/` catalog with mock, MiniMax Hailuo 02 Standard, Veo 3.1 Fast, and LTX 2.3 Fast engine profiles.
 - Embedded the effective configuration and its hash in every builder output for reproducibility.
 
 ### Changed

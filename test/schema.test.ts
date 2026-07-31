@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   msbManifestSchema,
@@ -10,7 +10,7 @@ const manifest = JSON.parse(
   readFileSync("examples/compound-interest/manifest.json", "utf8"),
 ) as Record<string, unknown>;
 const configuration = JSON.parse(
-  readFileSync("examples/compound-interest.msbc", "utf8"),
+  readFileSync("msbc/mock.msbc", "utf8"),
 ) as Record<string, unknown>;
 
 describe("schemas", () => {
@@ -24,10 +24,15 @@ describe("schemas", () => {
     ).toThrow();
   });
 
-  it("accepts the example configuration", () => {
-    expect(msbcConfigurationSchema.parse(configuration).renderer.provider).toBe(
-      "mock",
-    );
+  it("accepts every cataloged engine configuration", () => {
+    const files = readdirSync("msbc").filter((file) => file.endsWith(".msbc"));
+    expect(files.length).toBeGreaterThan(1);
+    for (const file of files)
+      expect(() =>
+        msbcConfigurationSchema.parse(
+          JSON.parse(readFileSync(`msbc/${file}`, "utf8")),
+        ),
+      ).not.toThrow();
   });
 
   it("rejects content-specific configuration", () => {

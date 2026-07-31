@@ -1,0 +1,14 @@
+{
+  "formatVersion": "1.0.0",
+  "output": {
+    "aspectRatio": "16:9",
+    "width": 1366,
+    "height": 768,
+    "frameRate": 25
+  },
+  "renderer": {
+    "provider": "fal",
+    "model": "fal-ai/minimax/hailuo-02/standard/image-to-video",
+    "requiredEnvironmentVariables": ["FAL_KEY"]
+  }
+}
