@@ -29,16 +29,13 @@ To persist the key, use a shell startup file or secret manager appropriate to yo
 
 ## Verify authentication without rendering
 
-The fal Platform API can verify the key without submitting a generation request:
+Movie Source Builder can verify the key through the configured renderer adapter without submitting a generation request:
 
 ```bash
-curl --fail-with-body \
-  --get "https://api.fal.ai/v1/models" \
-  --data-urlencode "limit=1" \
-  --header "Authorization: Key $FAL_KEY"
+msb verify-auth --config msbc/fal-hailuo-02-standard.msbc
 ```
 
-A successful JSON response confirms authentication. It does not confirm that a particular model is enabled, funded, or callable for the account.
+Omit `--config` to verify the packaged default profile. A successful response confirms authentication. It does not confirm that a particular model is enabled, funded, or callable for the account. The command never prints the key.
 
 ## Render
 

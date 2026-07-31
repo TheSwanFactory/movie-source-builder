@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - Added the content-independent Movie Source Builder Configuration (`.msbc`) format, including strict JSON Schema validation, safe inheritance, reusable output formats, environment-variable declarations, and packaged mock, Hailuo, Veo, and LTX profiles.
-- Added production fal rendering with live pricing and cost limits, asset upload, model-specific requests, normalized output, provenance, and atomic failure checkpoints.
+- Added production fal rendering with credential verification, live pricing and cost limits, asset upload, model-specific requests, normalized output, provenance, and atomic failure checkpoints.
 - Added a provider-ready smoke-test bundle plus guides for authoring, testing, and authenticating engine configurations.
 - Added gitignored timestamped builds under `build/<msb>-<msbc>/<timestamp>/`; explicit output paths remain stable for reuse.
 
