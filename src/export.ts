@@ -13,8 +13,8 @@ export async function exportMovie(
   const ffmpegPath = ffmpeg as unknown as string | null;
   if (!ffmpegPath) throw new Error("bundled ffmpeg is unavailable");
   const entries = await readArchive(input);
-  const raw = entries.get("output.json");
-  if (!raw) throw new Error("output.json is required");
+  const raw = entries.get("msbo.json");
+  if (!raw) throw new Error("msbo.json is required");
   const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
   if (
     output.status !== "complete" ||

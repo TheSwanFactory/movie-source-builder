@@ -137,7 +137,7 @@ describe("render planning", () => {
       configuration,
       JSON.parse(
         (await (await import("../src/archive.js")).readArchive(output))
-          .get("output.json")!
+          .get("msbo.json")!
           .toString(),
       ),
     );

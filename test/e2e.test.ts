@@ -23,7 +23,7 @@ describe("mocked end-to-end movie", () => {
       configuration: path.resolve("msbc/mock.msbc"),
     });
     const outputEntries = await readArchive(output);
-    const outputJson = outputEntries.get("output.json");
+    const outputJson = outputEntries.get("msbo.json");
     expect(outputJson).toBeDefined();
     expect(
       msboOutputSchema.parse(JSON.parse(outputJson!.toString("utf8"))).status,

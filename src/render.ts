@@ -108,8 +108,8 @@ export async function loadMsb(file: string): Promise<{
 }> {
   const bytes = await readFile(file);
   const entries = await readArchive(file);
-  const raw = entries.get("manifest.json");
-  if (!raw) throw new Error("manifest.json is required");
+  const raw = entries.get("msb.json");
+  if (!raw) throw new Error("msb.json is required");
   const manifest = msbManifestSchema.parse(JSON.parse(raw.toString("utf8")));
   for (const asset of referencedAssets(manifest))
     if (!entries.has(asset))
@@ -204,7 +204,7 @@ export async function renderMovie(
   let previousEntries: Map<string, Buffer> | undefined;
   try {
     previousEntries = await readArchive(options.output);
-    const raw = previousEntries.get("output.json");
+    const raw = previousEntries.get("msbo.json");
     if (raw) previous = msboOutputSchema.parse(JSON.parse(raw.toString()));
   } catch {
     previous = undefined;
@@ -264,7 +264,7 @@ export async function renderMovie(
       warnings: [],
     })),
   };
-  await atomicJson(path.join(work, "output.json"), output);
+  await atomicJson(path.join(work, "msbo.json"), output);
   const ffmpeg = (await import("ffmpeg-static")).default as unknown as
     string | null;
   if (!ffmpeg) throw new Error("bundled ffmpeg is unavailable");
@@ -293,7 +293,7 @@ export async function renderMovie(
         warnings: [...reusable.warnings, "reused from prior output"],
       });
       output.updatedAt = new Date().toISOString();
-      await atomicJson(path.join(work, "output.json"), output);
+      await atomicJson(path.join(work, "msbo.json"), output);
       continue;
     }
     try {
@@ -318,19 +318,19 @@ export async function renderMovie(
       result.error = error instanceof Error ? error.message : String(error);
       output.status = "failed";
       output.updatedAt = new Date().toISOString();
-      await atomicJson(path.join(work, "output.json"), output);
+      await atomicJson(path.join(work, "msbo.json"), output);
       throw error;
     }
     output.updatedAt = new Date().toISOString();
-    await atomicJson(path.join(work, "output.json"), output);
+    await atomicJson(path.join(work, "msbo.json"), output);
   }
   output.status = "complete";
   output.updatedAt = new Date().toISOString();
-  await atomicJson(path.join(work, "output.json"), output);
+  await atomicJson(path.join(work, "msbo.json"), output);
   const sourceManifest = Buffer.from(JSON.stringify(plan.manifest, null, 2));
   const archive = new Map<string, Buffer>([
-    ["output.json", await readFile(path.join(work, "output.json"))],
-    ["source/manifest.json", sourceManifest],
+    ["msbo.json", await readFile(path.join(work, "msbo.json"))],
+    ["source/msb.json", sourceManifest],
     [
       "configuration.msbc",
       Buffer.from(`${JSON.stringify(plan.configuration, null, 2)}\n`),

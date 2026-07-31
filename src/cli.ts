@@ -57,8 +57,8 @@ program
   .action(async (file, options) => {
     if (file.endsWith(".msbo")) {
       const entries = await readArchive(file);
-      const raw = entries.get("output.json");
-      if (!raw) throw new Error("output.json is required");
+      const raw = entries.get("msbo.json");
+      if (!raw) throw new Error("msbo.json is required");
       const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
       console.log(
         options.json
@@ -179,7 +179,7 @@ renderOptions(
 async function loadManifestDirectory(directory: string): Promise<void> {
   const info = await stat(directory);
   if (!info.isDirectory()) throw new Error("pack input must be a directory");
-  const raw = await readFile(path.join(directory, "manifest.json"));
+  const raw = await readFile(path.join(directory, "msb.json"));
   const { msbManifestSchema } = await import("./schema.js");
   msbManifestSchema.parse(JSON.parse(raw.toString()));
 }

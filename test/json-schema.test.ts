@@ -17,7 +17,7 @@ describe("published JSON Schemas", () => {
     [
       "MSB manifest",
       "schemas/msb-manifest.schema.json",
-      "examples/smoke-test/manifest.json",
+      "examples/smoke-test/msb.json",
     ],
     [
       "MSBC configuration",
