@@ -13,7 +13,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
-- **Breaking:** Split the artifact model into creative source (`.msb`), content-independent engine configuration (`.msbc`), and reproducible builder output (`.msbo`, renamed from `.mso`). Rendering and delivery settings no longer belong to source manifests, and provider selection moved from CLI flags into an optional `--config` that defaults to the packaged Hailuo profile.
+- **Breaking:** Split the artifact model into creative source (`.msb`), content-independent engine configuration (`.msbc`), and reproducible builder output (`.msbo`, renamed from `.mso`). Their primary documents are now self-identifying as `msb.json` and `msbo.json`; rendering and delivery settings no longer belong to source manifests, and provider selection moved from CLI flags into an optional `--config` that defaults to the packaged Hailuo profile.
 - Builder outputs now embed the resolved configuration and its hash, and dry runs plan every renderer without provider calls.
 - Standardized development, CI, and publishing on Node.js 24 or later and consolidated project documentation under `docs/`.
 

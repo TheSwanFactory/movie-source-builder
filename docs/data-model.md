@@ -2,7 +2,7 @@
 
 ## Movie Source Bundle (`.msb`)
 
-ZIP-compatible immutable creative source containing `manifest.json`, screenplay, characters, locations, props, references, and other source assets. Stable IDs are unique and every referenced path is relative and present.
+ZIP-compatible immutable creative source containing `msb.json`, screenplay, characters, locations, props, references, and other source assets. Stable IDs are unique and every referenced path is relative and present.
 
 ## Movie Source Builder Configuration (`.msbc`)
 
