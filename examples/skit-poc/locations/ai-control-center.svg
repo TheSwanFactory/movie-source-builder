@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#111827"/>
+  <path d="M0 520L180 360h920l180 160v200H0z" fill="#536173" stroke="#91a4ba" stroke-width="12"/>
+  <rect x="270" y="405" width="220" height="105" rx="10" fill="#223047"/>
+  <rect x="530" y="405" width="220" height="105" rx="10" fill="#223047"/>
+  <rect x="790" y="405" width="220" height="105" rx="10" fill="#223047"/>
+  <g fill="#65d6ff"><circle cx="315" cy="450" r="13"/><circle cx="575" cy="450" r="13"/><circle cx="835" cy="450" r="13"/></g>
+  <g stroke="#f5d76e" stroke-width="10"><path d="M350 470h95"/><path d="M610 470h95"/><path d="M870 470h95"/></g>
+  <text x="640" y="110" text-anchor="middle" font-family="sans-serif" font-size="52" font-weight="bold" fill="#d8e7f5">AI CONTROL CENTER</text>
+</svg>

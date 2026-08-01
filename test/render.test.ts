@@ -20,10 +20,7 @@ const configuration = path.resolve("msbc/mock.msbc");
 beforeAll(async () => {
   const root = await mkdtemp(path.join(tmpdir(), "msb-render-"));
   bundle = path.join(root, "sample.msb");
-  await writeArchiveFromDirectory(
-    path.resolve("examples/compound-interest"),
-    bundle,
-  );
+  await writeArchiveFromDirectory(path.resolve("examples/skit-poc"), bundle);
 });
 
 describe("render planning", () => {

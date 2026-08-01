@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#111827"/>
+  <text x="640" y="70" text-anchor="middle" font-family="sans-serif" font-size="42" font-weight="bold" fill="#d8e7f5">AI CONTROL CENTER</text>
+  <path d="M0 510L150 365h980l150 145v210H0z" fill="#536173" stroke="#91a4ba" stroke-width="10"/>
+  <g transform="translate(150 115)">
+    <path d="M40 430V190Q40 65 170 65t130 125v240" fill="#e34b4b" stroke="#101522" stroke-width="14"/>
+    <circle cx="125" cy="180" r="36" fill="#fff"/><circle cx="215" cy="180" r="36" fill="#fff"/>
+    <circle cx="132" cy="187" r="14"/><circle cx="208" cy="187" r="14"/>
+    <path d="M100 265q70 55 140 0" fill="#6d1623" stroke="#101522" stroke-width="12"/>
+    <rect x="115" y="340" width="110" height="65" rx="12" fill="#f5d76e" stroke="#101522" stroke-width="9"/>
+    <text x="170" y="388" text-anchor="middle" font-family="sans-serif" font-size="43" font-weight="bold" fill="#172033">86</text>
+  </g>
+  <g transform="translate(470 115)">
+    <path d="M40 430V190Q40 65 170 65t130 125v240" fill="#3d83d5" stroke="#101522" stroke-width="14"/>
+    <circle cx="125" cy="180" r="36" fill="#fff"/><circle cx="215" cy="180" r="36" fill="#fff"/>
+    <circle cx="132" cy="187" r="14"/><circle cx="208" cy="187" r="14"/>
+    <path d="M100 265q70 55 140 0" fill="#123f78" stroke="#101522" stroke-width="12"/>
+    <rect x="115" y="340" width="110" height="65" rx="12" fill="#f5d76e" stroke="#101522" stroke-width="9"/>
+    <text x="170" y="388" text-anchor="middle" font-family="sans-serif" font-size="43" font-weight="bold" fill="#172033">99</text>
+  </g>
+  <g transform="translate(790 115)">
+    <path d="M40 430V190Q40 65 170 65t130 125v240" fill="#55a868" stroke="#101522" stroke-width="14"/>
+    <circle cx="125" cy="180" r="36" fill="#fff"/><circle cx="215" cy="180" r="36" fill="#fff"/>
+    <circle cx="132" cy="187" r="14"/><circle cx="208" cy="187" r="14"/>
+    <path d="M100 265q70 55 140 0" fill="#205b32" stroke="#101522" stroke-width="12"/>
+    <rect x="115" y="340" width="110" height="65" rx="12" fill="#f5d76e" stroke="#101522" stroke-width="9"/>
+    <text x="170" y="388" text-anchor="middle" font-family="sans-serif" font-size="43" font-weight="bold" fill="#172033">13</text>
+  </g>
+  <g fill="#223047" stroke="#91a4ba" stroke-width="5">
+    <rect x="170" y="570" width="260" height="90" rx="10"/><rect x="510" y="570" width="260" height="90" rx="10"/><rect x="850" y="570" width="260" height="90" rx="10"/>
+  </g>
+  <g fill="#65d6ff"><circle cx="215" cy="610" r="11"/><circle cx="555" cy="610" r="11"/><circle cx="895" cy="610" r="11"/></g>
+</svg>

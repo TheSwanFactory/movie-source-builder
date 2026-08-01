@@ -16,7 +16,7 @@ const runnableConfigurations = readdirSync("msbc", {
   .map((entry) => path.resolve("msbc", entry.name));
 
 const manifest = JSON.parse(
-  readFileSync("examples/compound-interest/msb.json", "utf8"),
+  readFileSync("examples/skit-poc/msb.json", "utf8"),
 ) as Record<string, unknown>;
 const configuration = JSON.parse(
   readFileSync("msbc/mock.msbc", "utf8"),
