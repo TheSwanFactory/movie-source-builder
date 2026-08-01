@@ -198,12 +198,18 @@ export async function createPlan(
   file: string,
   configurationFile: string,
   previous?: MsboOutput,
+  previousEntries?: Map<string, Buffer>,
 ): Promise<RenderPlan> {
   const loaded = await loadMsb(file);
   const configured = await loadMsbc(configurationFile);
   const completed = new Map(
     previous?.shots
-      .filter((shot) => shot.status === "complete")
+      .filter((shot) => {
+        if (shot.status !== "complete" || !shot.mediaPath || !shot.mediaHash)
+          return false;
+        const media = previousEntries?.get(shot.mediaPath);
+        return media !== undefined && hash(media) === shot.mediaHash;
+      })
       .map((shot) => [shot.cacheKey, shot]) ?? [],
   );
   const units = loaded.manifest.shots.map((shot) => {
@@ -273,7 +279,12 @@ export async function renderMovie(
       previous = undefined;
     }
   }
-  const plan = await createPlan(source, options.configuration, previous);
+  const plan = await createPlan(
+    source,
+    options.configuration,
+    previous,
+    previousEntries,
+  );
   const missingEnvironmentVariables =
     plan.configuration.renderer.requiredEnvironmentVariables.filter(
       (name) => !process.env[name]?.trim(),
@@ -539,6 +550,7 @@ async function renderFalShot(
     "pending-upload",
   );
   const { fal } = await import("@fal-ai/client");
+  fal.config({ credentials: requireFalKey() });
   const imageUrl = await fal.storage.upload(
     new Blob([new Uint8Array(bytes)], { type: mime }),
   );

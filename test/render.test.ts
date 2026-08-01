@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { writeArchiveFromDirectory } from "../src/archive.js";
+import {
+  readArchive,
+  writeArchive,
+  writeArchiveFromDirectory,
+} from "../src/archive.js";
 import {
   createPlan,
   falInput,
@@ -137,17 +141,34 @@ describe("render planning", () => {
   it("reuses unchanged completed shots", async () => {
     const output = `${bundle}.reuse.msbo`;
     await renderMovie(bundle, { output, configuration });
+    const entries = await readArchive(output);
     const second = await createPlan(
       bundle,
       configuration,
-      JSON.parse(
-        (await (await import("../src/archive.js")).readArchive(output))
-          .get("msbo.json")!
-          .toString(),
-      ),
+      JSON.parse(entries.get("msbo.json")!.toString()),
+      entries,
     );
     expect(second.units.every((unit) => unit.reused)).toBe(true);
     expect(second.estimatedCost).toBe(0);
+  }, 60_000);
+
+  it("does not reuse cached shots with corrupted media", async () => {
+    const output = `${bundle}.corrupt-cache.msbo`;
+    await renderMovie(bundle, { output, configuration });
+    const entries = await readArchive(output);
+    const previous = JSON.parse(entries.get("msbo.json")!.toString());
+    entries.set(previous.shots[0].mediaPath, Buffer.from("corrupted"));
+    await writeArchive(entries, output);
+
+    const corruptedEntries = await readArchive(output);
+    const plan = await createPlan(
+      bundle,
+      configuration,
+      previous,
+      corruptedEntries,
+    );
+    expect(plan.units[0]!.reused).toBe(false);
+    expect(plan.units.slice(1).every((unit) => unit.reused)).toBe(true);
   }, 60_000);
 
   it("stops scheduling new shots after a concurrent worker fails", async () => {
