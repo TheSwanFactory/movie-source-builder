@@ -22,7 +22,11 @@
           "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
           "name": { "type": "string", "minLength": 1 },
           "description": { "type": "string", "minLength": 1 },
-          "reference": { "type": "string", "minLength": 1 }
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Packaged character source asset. It is not automatically sent to the renderer; use shots[].references for provider input."
+          }
         },
         "required": ["id", "name", "description", "reference"],
         "additionalProperties": false
@@ -36,7 +40,11 @@
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
           "description": { "type": "string", "minLength": 1 },
-          "reference": { "type": "string", "minLength": 1 }
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Packaged location source asset. It is not automatically sent to the renderer; use shots[].references for provider input."
+          }
         },
         "required": ["id", "description"],
         "additionalProperties": false
@@ -50,7 +58,11 @@
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
           "description": { "type": "string", "minLength": 1 },
-          "reference": { "type": "string", "minLength": 1 }
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Packaged prop source asset. It is not automatically sent to the renderer; use shots[].references for provider input."
+          }
         },
         "required": ["id", "description"],
         "additionalProperties": false
@@ -99,12 +111,14 @@
           "references": {
             "default": [],
             "type": "array",
-            "items": { "type": "string", "minLength": 1 }
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Explicit provider inputs for this shot. The current fal adapter requires exactly one raster and uploads only that image; entity references are not composited."
           },
           "continuity": {
             "default": [],
             "type": "array",
-            "items": { "type": "string" }
+            "items": { "type": "string" },
+            "description": "Text prompt guidance only; this does not lock identity or pass frames between independently generated shots."
           }
         },
         "required": [

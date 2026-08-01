@@ -35,7 +35,9 @@ export const msbManifestSchema = z.object({
       id,
       name: z.string().min(1),
       description: z.string().min(1),
-      reference: relativePath,
+      reference: relativePath.describe(
+        "Packaged character source asset. It is not automatically sent to the renderer; use shots[].references for provider input.",
+      ),
     }),
   ),
   locations: z
@@ -43,7 +45,11 @@ export const msbManifestSchema = z.object({
       z.object({
         id,
         description: z.string().min(1),
-        reference: relativePath.optional(),
+        reference: relativePath
+          .describe(
+            "Packaged location source asset. It is not automatically sent to the renderer; use shots[].references for provider input.",
+          )
+          .optional(),
       }),
     )
     .default([]),
@@ -52,7 +58,11 @@ export const msbManifestSchema = z.object({
       z.object({
         id,
         description: z.string().min(1),
-        reference: relativePath.optional(),
+        reference: relativePath
+          .describe(
+            "Packaged prop source asset. It is not automatically sent to the renderer; use shots[].references for provider input.",
+          )
+          .optional(),
       }),
     )
     .default([]),
@@ -67,8 +77,18 @@ export const msbManifestSchema = z.object({
         narration: z.string().optional(),
         action: z.string().min(1),
         camera: z.string().min(1),
-        references: z.array(relativePath).default([]),
-        continuity: z.array(z.string()).default([]),
+        references: z
+          .array(relativePath)
+          .describe(
+            "Explicit provider inputs for this shot. The current fal adapter requires exactly one raster and uploads only that image; entity references are not composited.",
+          )
+          .default([]),
+        continuity: z
+          .array(z.string())
+          .describe(
+            "Text prompt guidance only; this does not lock identity or pass frames between independently generated shots.",
+          )
+          .default([]),
       }),
     )
     .min(1),

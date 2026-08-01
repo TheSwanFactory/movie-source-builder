@@ -45,14 +45,15 @@ To develop this repository from source:
 npm install
 npm run build
 
-node dist/cli.js pack examples/compound-interest --out compound-interest.msb
-node dist/cli.js validate compound-interest.msb
-node dist/cli.js inspect compound-interest.msb
+node dist/cli.js pack examples/skit-poc --out skit-poc.msb
+node dist/cli.js validate skit-poc.msb
+node dist/cli.js validate skit-poc.msb --config msbc/fal-hailuo-02-standard.msbc
+node dist/cli.js inspect skit-poc.msb
 node dist/cli.js inspect msbc/mock.msbc
-node dist/cli.js render compound-interest.msb --config msbc/mock.msbc --out compound-interest.msbo --dry-run
-node dist/cli.js render compound-interest.msb --config msbc/mock.msbc --out compound-interest.msbo
-node dist/cli.js inspect compound-interest.msbo
-node dist/cli.js export compound-interest.msbo --out compound-interest.mp4
+node dist/cli.js render skit-poc.msb --config msbc/mock.msbc --out skit-poc.msbo --dry-run
+node dist/cli.js render skit-poc.msb --config msbc/mock.msbc --out skit-poc.msbo
+node dist/cli.js inspect skit-poc.msbo
+node dist/cli.js export skit-poc.msbo --out skit-poc.mp4
 ```
 
 The package is available on npm at `https://www.npmjs.com/package/movie-source-builder`.
@@ -74,6 +75,8 @@ Pass an explicit `--out` when a stable path is useful for cache reuse or resumin
 ## Containers and schemas
 
 An `.msb` is ZIP-compatible and begins with `msb.json`. It can include `screenplay.md`, `characters/`, `locations/`, `props/`, `audio/`, and `references/`. The manifest contains creative project metadata, stable entities, and ordered generation-sized shots. A source folder is packed into this portable container with `msb pack`.
+
+**Before authoring an MSB:** read [Authoring Movie Source Bundles](docs/msb-authoring.md). Entity-level character, location, and prop references are packaged source documentation; they are not automatically composited into provider input. The current fal renderer uploads only the single raster named in each shot's `references` array. Multi-character shots therefore need one canonical ensemble image showing the complete intended composition. Shots are generated independently, and `continuity` is prompt guidance rather than an identity lock or previous-frame handoff.
 
 An `.msbc` is a JSON document validated independently from the source. It defines a reusable rendering engine and cannot contain style, character, voice, shot, duration, or other content-specific instructions. Configurations may inherit another `.msbc` through a safe relative `extends` path, allowing output formats and engines to be composed. `renderer.requiredEnvironmentVariables` lists the environment-variable names that must be present before the renderer is called; their values remain outside every artifact. The same engine configuration can render any compatible `.msb`.
 
@@ -105,7 +108,7 @@ The command resolves inherited configuration, checks every declared environment 
 
 ## Example
 
-[`examples/compound-interest`](examples/compound-interest) contains “The Marshmallow Investment”: two stable sock puppets, one location, a prop, timed alternating dialogue, continuity constraints, and three 10-second shots. Placeholder SVG references are safe to redistribute.
+[`examples/skit-poc`](examples/skit-poc) contains “Agent Autonomy Skit”: three AI agent puppets, one control-center location, visible puppeteer hands, timed dialogue, continuity constraints, and three 10-second shots. It demonstrates the canonical ensemble-reference pattern described in the authoring guide. Placeholder SVG and PNG references are safe to redistribute.
 
 [`examples/smoke-test.msb`](examples/smoke-test.msb) is a provider-ready single-shot bundle for testing engine configurations. See the [`msbc` authoring and testing guide](msbc/README.md).
 
