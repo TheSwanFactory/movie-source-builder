@@ -33,13 +33,7 @@
       "reference": "locations/ai-control-center.png"
     }
   ],
-  "props": [
-    {
-      "id": "puppeteer-hands",
-      "description": "Three visible human puppeteer hands inserted inside the sock puppets and controlling them from below",
-      "reference": "props/puppeteer-hands.png"
-    }
-  ],
+  "props": [],
   "shots": [
     {
       "id": "scene-001-shot-001",
