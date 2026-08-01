@@ -187,6 +187,8 @@ renderOptions(
   const msbo = options.out
     ? movie.replace(/\.mp4$/i, "") + ".msbo"
     : defaults.msbo;
+  if (!options.dryRun && existsSync(movie) && !options.force)
+    throw new Error(`output exists: ${movie}; pass --force to overwrite`);
   const plan = await renderMovie(file, {
     output: msbo,
     configuration,

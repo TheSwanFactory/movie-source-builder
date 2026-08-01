@@ -354,31 +354,32 @@ export async function renderMovie(
       const unit = plan.units[index]!;
       const result = output.shots[index]!;
       const media = path.join(work, "shots", `${unit.id}.mp4`);
-      const reusable = previous?.shots.find(
-        (shot) => shot.status === "complete" && shot.cacheKey === unit.cacheKey,
-      );
-      const reusableBytes = reusable?.mediaPath
-        ? previousEntries?.get(reusable.mediaPath)
-        : undefined;
-      if (
-        reusable &&
-        reusableBytes &&
-        reusable.mediaHash === hash(reusableBytes)
-      ) {
-        await writeFile(media, reusableBytes);
-        Object.assign(result, {
-          ...reusable,
-          id: unit.id,
-          mediaPath: `shots/${unit.id}.mp4`,
-          estimatedCost: 0,
-          actualCost: 0,
-          warnings: [...reusable.warnings, "reused from prior output"],
-        });
-        output.updatedAt = new Date().toISOString();
-        await writeOutput();
-        continue;
-      }
       try {
+        const reusable = previous?.shots.find(
+          (shot) =>
+            shot.status === "complete" && shot.cacheKey === unit.cacheKey,
+        );
+        const reusableBytes = reusable?.mediaPath
+          ? previousEntries?.get(reusable.mediaPath)
+          : undefined;
+        if (
+          reusable &&
+          reusableBytes &&
+          reusable.mediaHash === hash(reusableBytes)
+        ) {
+          await writeFile(media, reusableBytes);
+          Object.assign(result, {
+            ...reusable,
+            id: unit.id,
+            mediaPath: `shots/${unit.id}.mp4`,
+            estimatedCost: 0,
+            actualCost: 0,
+            warnings: [...reusable.warnings, "reused from prior output"],
+          });
+          output.updatedAt = new Date().toISOString();
+          await writeOutput();
+          continue;
+        }
         const isFal = plan.configuration.renderer.provider === "fal";
         const requestId = isFal
           ? await renderFalShot(plan, index, media, ffmpeg)
@@ -394,6 +395,8 @@ export async function renderMovie(
           completedAt: new Date().toISOString(),
         });
         if (isFal) output.actualCost += unit.estimatedCost;
+        output.updatedAt = new Date().toISOString();
+        await writeOutput();
       } catch (error) {
         stopped = true;
         firstRenderError ??= error;
@@ -402,11 +405,13 @@ export async function renderMovie(
         result.error = error instanceof Error ? error.message : String(error);
         output.status = "failed";
         output.updatedAt = new Date().toISOString();
-        await writeOutput();
+        try {
+          await writeOutput();
+        } catch {
+          // Preserve the first error; all workers are still awaited below.
+        }
         return;
       }
-      output.updatedAt = new Date().toISOString();
-      await writeOutput();
     }
   };
 

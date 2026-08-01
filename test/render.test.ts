@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -148,6 +148,31 @@ describe("render planning", () => {
     );
     expect(second.units.every((unit) => unit.reused)).toBe(true);
     expect(second.estimatedCost).toBe(0);
+  }, 60_000);
+
+  it("stops scheduling new shots after a concurrent worker fails", async () => {
+    const plan = await createPlan(bundle, configuration);
+    const root = await mkdtemp(path.join(tmpdir(), "msb-render-failure-"));
+    const workDir = path.join(root, "work");
+    await mkdir(path.join(workDir, "shots", `${plan.units[0]!.id}.mp4`), {
+      recursive: true,
+    });
+
+    await expect(
+      renderMovie(bundle, {
+        output: path.join(root, "output.msbo"),
+        configuration,
+        workDir,
+        concurrency: 2,
+      }),
+    ).rejects.toThrow();
+
+    const checkpoint = JSON.parse(
+      await readFile(path.join(workDir, "msbo.json"), "utf8"),
+    );
+    expect(checkpoint.status).toBe("failed");
+    expect(checkpoint.shots[0].status).toBe("failed");
+    expect(checkpoint.shots[2].status).toBe("pending");
   }, 60_000);
 });
 
