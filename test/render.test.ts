@@ -160,6 +160,9 @@ describe("render planning", () => {
     entries.set(previous.shots[0].mediaPath, Buffer.from("corrupted"));
     await writeArchive(entries, output);
 
+    const metadataOnlyPlan = await createPlan(bundle, configuration, previous);
+    expect(metadataOnlyPlan.units.every((unit) => unit.reused)).toBe(true);
+
     const corruptedEntries = await readArchive(output);
     const plan = await createPlan(
       bundle,
@@ -169,6 +172,26 @@ describe("render planning", () => {
     );
     expect(plan.units[0]!.reused).toBe(false);
     expect(plan.units.slice(1).every((unit) => unit.reused)).toBe(true);
+  }, 60_000);
+
+  it("uses the same validated duplicate cache entry for plan and render", async () => {
+    const output = `${bundle}.duplicate-cache.msbo`;
+    await renderMovie(bundle, { output, configuration });
+    const entries = await readArchive(output);
+    const previous = JSON.parse(entries.get("msbo.json")!.toString());
+    const valid = previous.shots[0];
+    const corruptPath = "shots/corrupt.mp4";
+    previous.shots.unshift({ ...valid, mediaPath: corruptPath });
+    entries.set(corruptPath, Buffer.from("corrupted"));
+    entries.set("msbo.json", Buffer.from(JSON.stringify(previous)));
+    await writeArchive(entries, output);
+
+    await renderMovie(bundle, { output, configuration });
+    const rerendered = JSON.parse(
+      (await readArchive(output)).get("msbo.json")!.toString(),
+    );
+    expect(rerendered.shots[0].requestId).toBe(valid.requestId);
+    expect(rerendered.shots[0].warnings).toContain("reused from prior output");
   }, 60_000);
 
   it("stops scheduling new shots after a concurrent worker fails", async () => {

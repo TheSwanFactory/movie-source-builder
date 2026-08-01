@@ -202,16 +202,7 @@ export async function createPlan(
 ): Promise<RenderPlan> {
   const loaded = await loadMsb(file);
   const configured = await loadMsbc(configurationFile);
-  const completed = new Map(
-    previous?.shots
-      .filter((shot) => {
-        if (shot.status !== "complete" || !shot.mediaPath || !shot.mediaHash)
-          return false;
-        const media = previousEntries?.get(shot.mediaPath);
-        return media !== undefined && hash(media) === shot.mediaHash;
-      })
-      .map((shot) => [shot.cacheKey, shot]) ?? [],
-  );
+  const completed = reusableShotMap(previous, previousEntries);
   const units = loaded.manifest.shots.map((shot) => {
     const refs = referencedAssets({ ...loaded.manifest, shots: [shot] }).map(
       (name) => [name, hash(loaded.entries.get(name) ?? "")],
@@ -245,6 +236,28 @@ export async function createPlan(
       .filter((unit) => !unit.reused)
       .reduce((sum, unit) => sum + unit.estimatedCost, 0),
   };
+}
+
+function reusableShotMap(
+  previous?: MsboOutput,
+  previousEntries?: Map<string, Buffer>,
+): Map<string, { shot: MsboOutput["shots"][number]; media?: Buffer }> {
+  const reusable = new Map<
+    string,
+    { shot: MsboOutput["shots"][number]; media?: Buffer }
+  >();
+  for (const shot of previous?.shots ?? []) {
+    if (shot.status !== "complete") continue;
+    if (previousEntries === undefined) {
+      reusable.set(shot.cacheKey, { shot });
+      continue;
+    }
+    if (!shot.mediaPath || !shot.mediaHash) continue;
+    const media = previousEntries.get(shot.mediaPath);
+    if (media !== undefined && hash(media) === shot.mediaHash)
+      reusable.set(shot.cacheKey, { shot, media });
+  }
+  return reusable;
 }
 
 async function atomicJson(file: string, value: unknown): Promise<void> {
@@ -306,6 +319,7 @@ export async function renderMovie(
     );
   const work = path.resolve(options.workDir ?? `${options.output}.work`);
   if (options.force) previous = undefined;
+  const reusableShots = reusableShotMap(previous, previousEntries);
   await mkdir(path.join(work, "shots"), { recursive: true });
   const now = new Date().toISOString();
   const output: MsboOutput = {
@@ -366,26 +380,16 @@ export async function renderMovie(
       const result = output.shots[index]!;
       const media = path.join(work, "shots", `${unit.id}.mp4`);
       try {
-        const reusable = previous?.shots.find(
-          (shot) =>
-            shot.status === "complete" && shot.cacheKey === unit.cacheKey,
-        );
-        const reusableBytes = reusable?.mediaPath
-          ? previousEntries?.get(reusable.mediaPath)
-          : undefined;
-        if (
-          reusable &&
-          reusableBytes &&
-          reusable.mediaHash === hash(reusableBytes)
-        ) {
-          await writeFile(media, reusableBytes);
+        const reusable = reusableShots.get(unit.cacheKey);
+        if (reusable?.media) {
+          await writeFile(media, reusable.media);
           Object.assign(result, {
-            ...reusable,
+            ...reusable.shot,
             id: unit.id,
             mediaPath: `shots/${unit.id}.mp4`,
             estimatedCost: 0,
             actualCost: 0,
-            warnings: [...reusable.warnings, "reused from prior output"],
+            warnings: [...reusable.shot.warnings, "reused from prior output"],
           });
           output.updatedAt = new Date().toISOString();
           await writeOutput();
