@@ -27,7 +27,7 @@ source/
     └── control-center-ensemble.png  # actual image-to-video input
 ```
 
-The individual entity sheets are useful source documentation. `control-center-ensemble.png` is the canonical generation reference: it contains every visible character, stable identity marker, prop, and set element in one frame.
+The individual entity sheets are useful source documentation. Keep each character sheet isolated on the same neutral backdrop with no other characters, props, or story location; keep the location plate empty of characters. This prevents character identity references from leaking a background and prevents location references from leaking a cast. `control-center-ensemble.png` is the separate canonical generation reference: it intentionally combines every visible character, stable identity marker, prop, and set element in one frame.
 
 ## Minimal multi-character example
 
