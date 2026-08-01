@@ -449,6 +449,7 @@ export async function renderMovie(
   await mkdir(path.join(work, "shots"), { recursive: true });
   const now = new Date().toISOString();
   const output: MsboOutput = {
+    kind: "render",
     formatVersion: "1.0.0",
     source: {
       hash: plan.sourceHash,

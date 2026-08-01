@@ -151,9 +151,25 @@ export const shotResultSchema = z.object({
   warnings: z.array(z.string()),
   error: z.string().optional(),
   completedAt: z.string().datetime().optional(),
+  panelPath: relativePath.optional(),
+  panelHash: z.string().optional(),
+  timingAudioPath: relativePath.optional(),
+  timingAudioHash: z.string().optional(),
+  timeline: z
+    .array(
+      z.object({
+        type: z.enum(["dialogue", "narration"]),
+        start: z.number().nonnegative(),
+        end: z.number().positive(),
+        character: id.optional(),
+        text: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 export const msboOutputSchema = z.object({
+  kind: z.enum(["render", "storyboard"]).optional(),
   formatVersion: z.string().regex(/^1\.\d+\.\d+$/),
   source: z.object({ hash: z.string(), projectId: id, title: z.string() }),
   configuration: z.object({ hash: z.string() }),
@@ -173,6 +189,27 @@ export const msboOutputSchema = z.object({
   actualCost: z.number().nonnegative(),
   shots: z.array(shotResultSchema),
   warnings: z.array(z.string()),
+  storyboard: z
+    .object({
+      duration: z.number().nonnegative(),
+      movie: relativePath,
+      movieHash: z.string(),
+      contactSheet: relativePath,
+      contactSheetHash: z.string(),
+      temporaryAudio: z.literal(true),
+      timingAudioMode: z.enum(["silence", "system-voice"]).optional(),
+      networkRequests: z.literal(0),
+      assetHashes: z.record(z.string(), z.string()),
+      creativeInputHash: z.string(),
+      approval: z
+        .object({
+          approvedAt: z.string().datetime(),
+          creativeInputHash: z.string(),
+          artifactHash: z.string(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 export type MsboOutput = z.infer<typeof msboOutputSchema>;

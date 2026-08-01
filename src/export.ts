@@ -16,6 +16,10 @@ export async function exportMovie(
   const raw = entries.get("msbo.json");
   if (!raw) throw new Error("msbo.json is required");
   const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
+  if (output.kind === "storyboard")
+    throw new Error(
+      "storyboard outputs already contain a review MP4; use inspect to locate it",
+    );
   if (
     output.status !== "complete" ||
     output.shots.some((shot) => shot.status !== "complete")

@@ -1,6 +1,6 @@
 # movie-source-builder
 
-`movie-source-builder` is the npm package for portable, inspectable AI movie builds. Its executable is `msb`, and its pipeline is:
+`movie-source-builder` is the npm package for portable, inspectable AI movie builds. Its executable is `msb`, and its production pipeline is:
 
 ```text
 source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder Output (.msbo) → movie (.mp4)
@@ -10,6 +10,8 @@ source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder
 - `.msbc` is content-independent engine configuration: renderer provider/model, required environment-variable names, and technical output settings. It is JSON and never contains credential values.
 - `.msbo` is self-contained builder output: generated scenes and audio, rendering notes, hashes, configuration snapshot, costs, status, and provenance.
 - `.mp4` is a repeatable delivery export. Export never calls an AI provider.
+
+Review progresses through four deliberately distinct stages: `storyboard → previz → render → export`. `storyboard` is the zero-cost local planning check described below. `previz` is a future provider-generated feasibility pass. `render` creates production source media, and `export` assembles an already-built output without provider calls.
 
 ## Install and use
 
@@ -47,6 +49,9 @@ npm run build
 
 node dist/cli.js pack examples/skit-poc --out skit-poc.msb
 node dist/cli.js validate skit-poc.msb
+node dist/cli.js storyboard skit-poc.msb --out skit-poc-storyboard.msbo
+node dist/cli.js inspect skit-poc-storyboard.msbo
+node dist/cli.js approve skit-poc-storyboard.msbo --source skit-poc.msb
 node dist/cli.js validate skit-poc.msb --config msbc/fal-hailuo-02-standard.msbc
 node dist/cli.js inspect skit-poc.msb
 node dist/cli.js inspect msbc/mock.msbc
@@ -57,6 +62,22 @@ node dist/cli.js export skit-poc.msbo --out skit-poc.mp4
 ```
 
 The package is available on npm at `https://www.npmjs.com/package/movie-source-builder`.
+
+## Local storyboard review
+
+Run `msb storyboard movie.msb --out storyboard.msbo` before any provider-generated work. It validates the complete bundle, creates one readable SVG panel per shot, silent timing-audio tracks, an SVG contact sheet, and a review MP4 using the bundled FFmpeg. Supplied shot references are displayed as-is; no replacement imagery is generated. The output records ordered shot timelines, source and asset hashes, warnings, and zero network requests. Timing silence is explicitly disposable and is never represented as production audio.
+
+On macOS, add `--timing-voices` to place disposable system-synthesized speech at each authored dialogue and narration time. These local voices are timing aids only and are explicitly labeled as non-production audio.
+
+Canonical image and timing-audio generation instructions live under [`scripts/prompts/`](scripts/prompts/). Generate a deterministic, machine-readable prompt plan with:
+
+```bash
+npm run storyboard:prompts -- movie.msb --out storyboard-prompts.json
+```
+
+Each shot and dialogue event receives a hashed prompt derived from the complete authored source. Run the same command with `--check` to reject missing or reused shot references. This makes shot-state reference requirements explicit before storyboard or provider work; a shared ensemble image is not silently accepted as three visually distinct shot panels.
+
+`msb inspect storyboard.msbo` reports its duration, warnings, and approval state. After reviewing the embedded MP4 and contact sheet, bind approval to the exact source and generated artifacts with `msb approve storyboard.msbo --source movie.msb`. Approval fails clearly if any byte of the source bundle—including screenplay, dialogue, ordering, timing, references, action, camera, or continuity—has changed.
 
 Without `--out`, each invocation writes to a gitignored, timestamped build directory:
 

@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
+    "kind": { "type": "string", "enum": ["render", "storyboard"] },
     "formatVersion": { "type": "string", "pattern": "^1\\.\\d+\\.\\d+$" },
     "source": {
       "type": "object",
@@ -80,6 +81,28 @@
             "type": "string",
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+          },
+          "panelPath": { "type": "string", "minLength": 1 },
+          "panelHash": { "type": "string" },
+          "timingAudioPath": { "type": "string", "minLength": 1 },
+          "timingAudioHash": { "type": "string" },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": { "type": "string", "enum": ["dialogue", "narration"] },
+                "start": { "type": "number", "minimum": 0 },
+                "end": { "type": "number", "exclusiveMinimum": 0 },
+                "character": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                },
+                "text": { "type": "string", "minLength": 1 }
+              },
+              "required": ["type", "start", "end", "text"],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -96,7 +119,55 @@
         "additionalProperties": false
       }
     },
-    "warnings": { "type": "array", "items": { "type": "string" } }
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "storyboard": {
+      "type": "object",
+      "properties": {
+        "duration": { "type": "number", "minimum": 0 },
+        "movie": { "type": "string", "minLength": 1 },
+        "movieHash": { "type": "string" },
+        "contactSheet": { "type": "string", "minLength": 1 },
+        "contactSheetHash": { "type": "string" },
+        "temporaryAudio": { "type": "boolean", "const": true },
+        "timingAudioMode": {
+          "type": "string",
+          "enum": ["silence", "system-voice"]
+        },
+        "networkRequests": { "type": "number", "const": 0 },
+        "assetHashes": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "type": "string" }
+        },
+        "creativeInputHash": { "type": "string" },
+        "approval": {
+          "type": "object",
+          "properties": {
+            "approvedAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+            },
+            "creativeInputHash": { "type": "string" },
+            "artifactHash": { "type": "string" }
+          },
+          "required": ["approvedAt", "creativeInputHash", "artifactHash"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "duration",
+        "movie",
+        "movieHash",
+        "contactSheet",
+        "contactSheetHash",
+        "temporaryAudio",
+        "networkRequests",
+        "assetHashes",
+        "creativeInputHash"
+      ],
+      "additionalProperties": false
+    }
   },
   "required": [
     "formatVersion",

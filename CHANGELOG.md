@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.4.0] - 2026-08-01
+
+### Added
+
+- Added the provider-free `msb storyboard` workflow with deterministic local panels, timing audio, a contact sheet, a review MP4, complete source and artifact hashes, and typed storyboard metadata in `.msbo`.
+- Added optional disposable macOS timing voices with authored dialogue and narration placement through `--timing-voices`.
+- Added `msb approve` with immutable creative-input and artifact hash binding; changed sources or embedded artifacts invalidate approval.
+- Added canonical, versioned storyboard image and timing-audio prompt templates plus a deterministic prompt-plan generator and strict shot-reference validation.
+- Added three shot-specific skit reference images covering the upright, mid-collapse, and fully collapsed visual states.
+
+### Changed
+
+- `msb inspect` now reports storyboard kind, duration, warnings, and approval status.
+- Builder outputs explicitly identify render or storyboard kind while retaining compatibility with existing `.msbo` files.
+- `msb export` now directs storyboard outputs to their already-embedded review MP4.
+
+### Validation
+
+- Added offline storyboard, timing overflow, approval invalidation, canonical prompt hashing, strict duplicate-reference, stable ordering, and npm package-content coverage.
+- Automated storyboard tests prohibit network calls and use no paid generation providers.
+
 ## [0.3.0] - 2026-08-01
 
 ### Added
@@ -50,6 +71,7 @@ All notable changes to this project are documented in this file.
 - Added the local mock renderer, the compound-interest example, automated unit and end-to-end tests, and generated JSON Schemas.
 - Added GitHub Actions quality checks and npm trusted publishing with GitHub OIDC provenance.
 
+[0.4.0]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.4.0
 [0.3.0]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.3.0
 [0.2.1]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.2.1
 [0.2.0]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.2.0

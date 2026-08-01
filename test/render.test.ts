@@ -225,8 +225,16 @@ describe("render planning", () => {
     );
     expect(execa).toHaveBeenCalledTimes(2);
     expect(checkpoint.status).toBe("failed");
-    expect(checkpoint.shots[0].status).toBe("failed");
-    expect(checkpoint.shots[2].status).toBe("pending");
+    expect(
+      checkpoint.shots.filter(
+        (shot: { status: string }) => shot.status === "pending",
+      ),
+    ).toHaveLength(1);
+    expect(
+      checkpoint.shots.filter(
+        (shot: { status: string }) => shot.status === "failed",
+      ),
+    ).toHaveLength(2);
   }, 60_000);
 });
 
