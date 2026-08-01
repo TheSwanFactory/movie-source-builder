@@ -27,6 +27,14 @@ const wrap = (value: string, width = 72) => {
   }
   return lines;
 };
+const srtTimestamp = (seconds: number) => {
+  const milliseconds = Math.round(seconds * 1000);
+  const hours = Math.floor(milliseconds / 3_600_000);
+  const minutes = Math.floor((milliseconds % 3_600_000) / 60_000);
+  const secs = Math.floor((milliseconds % 60_000) / 1000);
+  const millis = milliseconds % 1000;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")},${String(millis).padStart(3, "0")}`;
+};
 const mime = (name: string) =>
   ({
     ".png": "image/png",
@@ -152,30 +160,31 @@ export async function createStoryboard(
       const audio = await readFile(audioFile);
       archive.set(audioPath, audio);
       const clip = path.join(work, `${shot.id}.mp4`);
-      const reviewTextFile = path.join(work, `${shot.id}.txt`);
+      const reviewTextFile = path.join(work, `${shot.id}.srt`);
+      const reviewText = [
+        `LOCAL STORYBOARD | ${shot.id} | ${shot.duration}s`,
+        `CAST: ${shot.characters.join(", ") || "none"}`,
+        `LOCATION: ${shot.location ?? "unspecified"}`,
+        `PROPS: ${loaded.manifest.props.map((prop) => prop.id).join(", ") || "none"}`,
+        `ACTION: ${shot.action}`,
+        `CAMERA: ${shot.camera}`,
+        `CONTINUITY: ${shot.continuity.join("; ") || "none"}`,
+        ...shot.dialogue.map(
+          (line) =>
+            `${line.start}-${line.end}s ${line.character ?? "ensemble"}: ${line.text}`,
+        ),
+        ...(shot.narration
+          ? [`NARRATION 0-${shot.duration}s: ${shot.narration}`]
+          : []),
+        options.timingVoices
+          ? "TEMPORARY TIMING VOICES — NOT PRODUCTION AUDIO"
+          : "TEMPORARY TIMING SILENCE — NOT PRODUCTION AUDIO",
+      ]
+        .flatMap((line) => wrap(line, 52))
+        .join("\n");
       await writeFile(
         reviewTextFile,
-        [
-          `LOCAL STORYBOARD | ${shot.id} | ${shot.duration}s`,
-          `CAST: ${shot.characters.join(", ") || "none"}`,
-          `LOCATION: ${shot.location ?? "unspecified"}`,
-          `PROPS: ${loaded.manifest.props.map((prop) => prop.id).join(", ") || "none"}`,
-          `ACTION: ${shot.action}`,
-          `CAMERA: ${shot.camera}`,
-          `CONTINUITY: ${shot.continuity.join("; ") || "none"}`,
-          ...shot.dialogue.map(
-            (line) =>
-              `${line.start}-${line.end}s ${line.character ?? "ensemble"}: ${line.text}`,
-          ),
-          ...(shot.narration
-            ? [`NARRATION 0-${shot.duration}s: ${shot.narration}`]
-            : []),
-          options.timingVoices
-            ? "TEMPORARY TIMING VOICES — NOT PRODUCTION AUDIO"
-            : "TEMPORARY TIMING SILENCE — NOT PRODUCTION AUDIO",
-        ]
-          .flatMap((line) => wrap(line, 52))
-          .join("\n"),
+        `1\n00:00:00,000 --> ${srtTimestamp(shot.duration)}\n${reviewText}\n`,
       );
       const inputArgs =
         referenceName && referenceBytes && mime(referenceName)
@@ -196,7 +205,7 @@ export async function createStoryboard(
         "-t",
         String(shot.duration),
         "-vf",
-        `scale=600:720:force_original_aspect_ratio=decrease,pad=1280:720:0:(oh-ih)/2:color=0x111827,drawbox=x=600:y=0:w=680:h=720:color=0x111827:t=fill,drawtext=textfile='${reviewTextFile.replaceAll("'", "'\\''")}':fontcolor=white:fontsize=18:x=620:y=28:line_spacing=6`,
+        `scale=600:720:force_original_aspect_ratio=decrease,pad=1280:720:0:(oh-ih)/2:color=0x111827,drawbox=x=600:y=0:w=680:h=720:color=0x111827:t=fill,subtitles='${reviewTextFile.replaceAll("'", "'\\''")}':force_style='FontName=DejaVu Sans,FontSize=18,PrimaryColour=&H00FFFFFF,Outline=0,Shadow=0,Alignment=7,MarginL=620,MarginR=20,MarginV=24'`,
         "-r",
         "24",
         "-c:v",
