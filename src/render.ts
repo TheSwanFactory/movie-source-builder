@@ -59,6 +59,13 @@ export interface AuthenticationVerification {
   message: string;
 }
 
+function requireFalKey(): string {
+  const key = process.env.FAL_KEY?.trim();
+  if (!key)
+    throw new Error("missing required renderer environment variable: FAL_KEY");
+  return key;
+}
+
 export async function verifyRendererAuthentication(
   configurationFile: string,
 ): Promise<AuthenticationVerification> {
@@ -82,17 +89,11 @@ export async function verifyRendererAuthentication(
     throw new Error(
       `authentication verification is unsupported for provider: ${configuration.renderer.provider}`,
     );
-  const authKey = configuration.renderer.requiredEnvironmentVariables.find(
-    (name) => process.env[name]?.trim(),
-  );
-  if (!authKey)
-    throw new Error(
-      `missing required renderer environment variables: ${configuration.renderer.requiredEnvironmentVariables.join(", ")}`,
-    );
+  const falKey = requireFalKey();
   const url = new URL("https://api.fal.ai/v1/models");
   url.searchParams.set("limit", "1");
   const response = await fetch(url, {
-    headers: { Authorization: `Key ${process.env[authKey]!.trim()}` },
+    headers: { Authorization: `Key ${falKey}` },
   });
   if (!response.ok)
     throw new Error(`fal authentication failed: HTTP ${response.status}`);
@@ -334,6 +335,8 @@ export async function renderMovie(
   if (!ffmpeg) throw new Error("bundled ffmpeg is unavailable");
   const concurrency = Math.max(1, options.concurrency ?? 1);
   let nextIndex = 0;
+  let stopped = false;
+  let firstRenderError: unknown;
   let outputWriteChain = Promise.resolve();
   const writeOutput = async () => {
     const writePromise = outputWriteChain.then(() =>
@@ -345,6 +348,7 @@ export async function renderMovie(
 
   const renderWorker = async () => {
     while (true) {
+      if (stopped) return;
       const index = nextIndex++;
       if (index >= plan.units.length) return;
       const unit = plan.units[index]!;
@@ -391,25 +395,31 @@ export async function renderMovie(
         });
         if (isFal) output.actualCost += unit.estimatedCost;
       } catch (error) {
+        stopped = true;
+        firstRenderError ??= error;
         result.status = "failed";
         result.attempts = 1;
         result.error = error instanceof Error ? error.message : String(error);
         output.status = "failed";
         output.updatedAt = new Date().toISOString();
         await writeOutput();
-        throw error;
+        return;
       }
       output.updatedAt = new Date().toISOString();
       await writeOutput();
     }
   };
 
-  await Promise.all(
+  const workerResults = await Promise.allSettled(
     Array.from(
       { length: Math.min(concurrency, plan.units.length) },
       renderWorker,
     ),
   );
+  firstRenderError ??= workerResults.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  )?.reason;
+  if (firstRenderError) throw firstRenderError;
   output.status = "complete";
   output.updatedAt = new Date().toISOString();
   await atomicJson(path.join(work, "msbo.json"), output);
@@ -434,17 +444,11 @@ export async function renderMovie(
 }
 
 async function applyFalPricing(plan: RenderPlan): Promise<void> {
-  const authKey = plan.configuration.renderer.requiredEnvironmentVariables.find(
-    (name) => process.env[name]?.trim(),
-  );
-  if (!authKey)
-    throw new Error(
-      `missing required renderer environment variables: ${plan.configuration.renderer.requiredEnvironmentVariables.join(", ")}`,
-    );
+  const falKey = requireFalKey();
   const url = new URL("https://api.fal.ai/v1/models/pricing");
   url.searchParams.set("endpoint_id", plan.configuration.renderer.model);
   const response = await fetch(url, {
-    headers: { Authorization: `Key ${process.env[authKey]!.trim()}` },
+    headers: { Authorization: `Key ${falKey}` },
   });
   if (!response.ok)
     throw new Error(`failed to retrieve fal pricing: HTTP ${response.status}`);
