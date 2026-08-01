@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2026-08-01
+
+### Added
+
+- Replaced the compound-interest fixture with the Agent Autonomy skit POC, including canonical ensemble and entity reference assets.
+- Added semantic MSB validation for unique identities, entity relationships, dialogue cast membership, and timing.
+- Added renderer input contracts and fal preflight validation before authentication, pricing, uploads, or provider requests.
+- Added an MSB authoring guide covering provider references, multi-character compositions, continuity limitations, and paid-render preflight.
+
+### Changed
+
+- `msb validate` now accepts `--config` to verify that a bundle satisfies the selected renderer's input requirements.
+- Published schema descriptions now distinguish packaged entity assets from explicit shot provider inputs.
+
 ## [0.2.1] - 2026-07-31
 
 ### Fixed
@@ -36,5 +50,7 @@ All notable changes to this project are documented in this file.
 - Added the local mock renderer, the compound-interest example, automated unit and end-to-end tests, and generated JSON Schemas.
 - Added GitHub Actions quality checks and npm trusted publishing with GitHub OIDC provenance.
 
+[0.3.0]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.3.0
+[0.2.1]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.2.1
 [0.2.0]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.2.0
 [0.1.0]: https://github.com/TheSwanFactory/movie-source-builder/releases/tag/v0.1.0
