@@ -21,26 +21,38 @@ Install from npm:
 npm install -g movie-source-builder
 ```
 
+The global installation exposes `msb` directly:
+
+```bash
+msb --help
+```
+
 Or install locally in a project:
 
 ```bash
 npm install movie-source-builder
 ```
 
-Then build and run locally:
+Run a project-local installation with `npx`:
+
+```bash
+npx msb --help
+```
+
+To develop this repository from source:
 
 ```bash
 npm install
 npm run build
 
-msb pack examples/compound-interest --out compound-interest.msb
-msb validate compound-interest.msb
-msb inspect compound-interest.msb
-msb inspect msbc/mock.msbc
-msb render compound-interest.msb --config msbc/mock.msbc --out compound-interest.msbo --dry-run
-msb render compound-interest.msb --config msbc/mock.msbc --out compound-interest.msbo
-msb inspect compound-interest.msbo
-msb export compound-interest.msbo --out compound-interest.mp4
+node dist/cli.js pack examples/compound-interest --out compound-interest.msb
+node dist/cli.js validate compound-interest.msb
+node dist/cli.js inspect compound-interest.msb
+node dist/cli.js inspect msbc/mock.msbc
+node dist/cli.js render compound-interest.msb --config msbc/mock.msbc --out compound-interest.msbo --dry-run
+node dist/cli.js render compound-interest.msb --config msbc/mock.msbc --out compound-interest.msbo
+node dist/cli.js inspect compound-interest.msbo
+node dist/cli.js export compound-interest.msbo --out compound-interest.mp4
 ```
 
 The package is available on npm at `https://www.npmjs.com/package/movie-source-builder`.

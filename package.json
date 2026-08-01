@@ -30,6 +30,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run build",
     "test": "vitest run",
     "schema:check": "npm run build && git diff --exit-code -- schemas",
     "smoke": "node dist/cli.js --help"

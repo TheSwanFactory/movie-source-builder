@@ -110,7 +110,10 @@ program
     );
   });
 
-function renderOptions(command: Command): Command {
+function renderOptions(
+  command: Command,
+  forceDescription = "ignore reusable output and render every shot",
+): Command {
   return command
     .option("-o, --out <file>", "explicit output path; defaults under ./build")
     .option(
@@ -121,7 +124,8 @@ function renderOptions(command: Command): Command {
     .option("--work-dir <path>")
     .option("--concurrency <number>", "parallel requests", number, 2)
     .option("--max-cost <usd>", "maximum new generation cost", number)
-    .option("--force")
+    .option("--force", forceDescription)
+    .option("--fresh", "ignore reusable output and render every shot")
     .option("--keep-work-dir");
 }
 
@@ -140,7 +144,7 @@ renderOptions(
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
-    force: options.force,
+    force: options.force || options.fresh,
     concurrency: options.concurrency,
     keepWorkDir: options.keepWorkDir,
   });
@@ -180,6 +184,7 @@ renderOptions(
     .command("make")
     .description("Render and export in one command")
     .argument("<file>"),
+  "overwrite an existing MP4",
 ).action(async (file, options) => {
   const configuration = options.config ?? DEFAULT_CONFIGURATION;
   const defaults = defaultBuildPaths(file, configuration);
@@ -195,7 +200,7 @@ renderOptions(
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
-    force: options.force,
+    force: options.fresh,
     concurrency: options.concurrency,
     keepWorkDir: options.keepWorkDir,
   });
