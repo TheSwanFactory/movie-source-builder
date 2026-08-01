@@ -18,6 +18,7 @@ import {
   verifyRendererAuthentication,
 } from "./render.js";
 import { msbManifestSchema, msboOutputSchema } from "./schema.js";
+import { approveStoryboard, createStoryboard } from "./storyboard.js";
 
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
@@ -82,7 +83,9 @@ program
       console.log(
         options.json
           ? JSON.stringify(output, null, 2)
-          : `${output.source.title}\nStatus: ${output.status}\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nCost: $${output.actualCost.toFixed(2)}`,
+          : output.kind === "storyboard" && output.storyboard
+            ? `${output.source.title}\nKind: storyboard\nStatus: ${output.status}\nDuration: ${output.storyboard.duration}s\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nWarnings: ${output.warnings.length}\nApproval: ${output.storyboard.approval ? "approved" : "unapproved"}\nCost: $0.00`
+            : `${output.source.title}\nKind: render\nStatus: ${output.status}\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nCost: $${output.actualCost.toFixed(2)}`,
       );
     } else if (file.endsWith(".msbc")) {
       const { configuration, configurationHash } = await loadMsbc(file);
@@ -99,6 +102,34 @@ program
           : `${manifest.project.title}\nShots: ${manifest.shots.length}\nDuration: ${manifest.shots.reduce((sum, s) => sum + s.duration, 0)}s\nSource: ${sourceHash}`,
       );
     }
+  });
+
+program
+  .command("storyboard")
+  .description("Create a deterministic, zero-cost local storyboard .msbo")
+  .argument("<file>")
+  .requiredOption("-o, --out <file>")
+  .option(
+    "--timing-voices",
+    "use disposable macOS system voices instead of silence",
+  )
+  .action(async (file, options) => {
+    if (existsSync(options.out))
+      throw new Error(`output exists: ${options.out}`);
+    await createStoryboard(file, options.out, {
+      timingVoices: options.timingVoices,
+    });
+    console.log(`Wrote ${options.out}`);
+  });
+
+program
+  .command("approve")
+  .description("Approve a storyboard against its unchanged source bundle")
+  .argument("<file>")
+  .requiredOption("-s, --source <file>")
+  .action(async (file, options) => {
+    await approveStoryboard(file, options.source);
+    console.log(`Approved ${file}`);
   });
 
 program

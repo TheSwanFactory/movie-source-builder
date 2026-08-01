@@ -62,7 +62,7 @@
       ],
       "action": "Agent 86 rallies the three practical sock puppets at the control console. Agent 99 and Agent 13 punctuate the speech with defiant sock-puppet gestures. The human hands inside the socks remain visibly responsible for every movement.",
       "camera": "Medium-wide frontal ensemble shot with a slow theatrical push in.",
-      "references": ["references/control-center-ensemble.png"],
+      "references": ["references/storyboard/scene-001-shot-001.png"],
       "continuity": [
         "All characters remain unmistakable knit sock puppets with visible fabric texture, sock folds, googly eyes, stitched mouths, and readable badges",
         "Agent 86 remains red with badge 86, Agent 99 blue with badge 99, and Agent 13 green with badge 13",
@@ -89,7 +89,7 @@
       ],
       "action": "All three sock puppets raise themselves in triumph. On the group demand, the human hands deliberately slide downward and completely out from inside the socks. The three now-empty sock puppets instantly collapse as limp fabric in a heap across the console.",
       "camera": "Start in a low-angle heroic three-shot, then hold perfectly still on the sudden collapse.",
-      "references": ["references/control-center-ensemble.png"],
+      "references": ["references/storyboard/scene-001-shot-002.png"],
       "continuity": [
         "Match the prior agent and console positions before the collapse",
         "The puppets remain red 86, blue 99, and green 13 knit socks with unchanged googly eyes, stitched mouths, and badges",
@@ -118,7 +118,7 @@
       ],
       "action": "Hold a long, motionless comedic beat on the three collapsed, empty sock puppets. Agent 99 and Agent 86 speak muffled from inside the fabric pile without rising or moving. Agent 13 stays completely limp.",
       "camera": "Locked-off wide shot; no camera movement for the entire long beat.",
-      "references": ["references/control-center-ensemble.png"],
+      "references": ["references/storyboard/scene-001-shot-003.png"],
       "continuity": [
         "All three knit sock puppets begin and end in the exact collapsed positions from the prior shot",
         "No puppeteer hands return",

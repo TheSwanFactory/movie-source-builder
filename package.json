@@ -1,6 +1,6 @@
 {
   "name": "movie-source-builder",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Build, validate, render, and export portable AI movie source bundles",
   "type": "module",
   "bin": {
@@ -16,6 +16,8 @@
     "dist",
     "schemas",
     "msbc",
+    "scripts/generate-storyboard-prompts.mjs",
+    "scripts/prompts",
     "examples/smoke-test.msb",
     "README.md",
     "LICENSE"
@@ -33,7 +35,8 @@
     "pretest": "npm run build",
     "test": "vitest run",
     "schema:check": "npm run build && git diff --exit-code -- schemas",
-    "smoke": "node dist/cli.js --help"
+    "smoke": "node dist/cli.js --help",
+    "storyboard:prompts": "npm run build && node scripts/generate-storyboard-prompts.mjs"
   },
   "dependencies": {
     "@fal-ai/client": "^1.6.2",
