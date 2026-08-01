@@ -108,7 +108,7 @@ The command resolves inherited configuration, checks every declared environment 
 
 ## Example
 
-[`examples/skit-poc`](examples/skit-poc) contains “Agent Autonomy Skit”: three AI agent puppets, one control-center location, visible puppeteer hands, timed dialogue, continuity constraints, and three 10-second shots. It demonstrates the canonical ensemble-reference pattern described in the authoring guide. Placeholder SVG and PNG references are safe to redistribute.
+[`examples/skit-poc`](examples/skit-poc) contains “Agent Autonomy Skit”: three explicitly framed knit sock puppets, one control-center location, visible puppeteer hands, timed dialogue, continuity constraints, and three 10-second shots. It demonstrates the canonical ensemble-reference pattern described in the authoring guide. Placeholder SVG and PNG references are safe to redistribute.
 
 [`examples/smoke-test.msb`](examples/smoke-test.msb) is a provider-ready single-shot bundle for testing engine configurations. See the [`msbc` authoring and testing guide](msbc/README.md).
 

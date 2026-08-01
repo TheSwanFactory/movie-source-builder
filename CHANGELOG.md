@@ -6,7 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-- Replaced the compound-interest fixture with the Agent Autonomy skit POC, including canonical ensemble and entity reference assets.
+- Replaced the compound-interest fixture with the Agent Autonomy practical sock-puppet skit POC, including canonical ensemble and entity reference assets.
 - Added semantic MSB validation for unique identities, entity relationships, dialogue cast membership, and timing.
 - Added renderer input contracts and fal preflight validation before authentication, pricing, uploads, or provider requests.
 - Added an MSB authoring guide covering provider references, multi-character compositions, continuity limitations, and paid-render preflight.

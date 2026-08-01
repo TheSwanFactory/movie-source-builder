@@ -40,13 +40,13 @@ The individual entity sheets are useful source documentation. `control-center-en
     {
       "id": "agent-86",
       "name": "Agent 86",
-      "description": "Red felt puppet with an 86 badge",
+      "description": "Red knit sock puppet with an 86 badge",
       "reference": "characters/agent-86.png"
     },
     {
       "id": "agent-99",
       "name": "Agent 99",
-      "description": "Blue felt puppet with a 99 badge",
+      "description": "Blue knit sock puppet with a 99 badge",
       "reference": "characters/agent-99.png"
     }
   ],

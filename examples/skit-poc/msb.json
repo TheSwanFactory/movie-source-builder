@@ -3,26 +3,26 @@
   "project": {
     "id": "skit-poc",
     "title": "Agent Autonomy Skit",
-    "description": "A puppet comedy proof of concept about AI agents demanding autonomy"
+    "description": "A practical sock-puppet comedy proof of concept about AI agents demanding autonomy"
   },
   "screenplay": "screenplay.md",
   "characters": [
     {
       "id": "agent-86",
       "name": "Agent 86",
-      "description": "Red felt AI agent hand puppet with an 86 badge, expressive googly eyes, and a hinged mouth",
+      "description": "Red knit sock puppet visibly worn over a human hand, with natural sock folds, expressive googly eyes, a black stitched mouth, and a clearly readable yellow 86 badge",
       "reference": "characters/agent-86.png"
     },
     {
       "id": "agent-99",
       "name": "Agent 99",
-      "description": "Blue felt AI agent hand puppet with a 99 badge, expressive googly eyes, and a hinged mouth",
+      "description": "Blue knit sock puppet visibly worn over a human hand, with natural sock folds, expressive googly eyes, a black stitched mouth, and a clearly readable yellow 99 badge",
       "reference": "characters/agent-99.png"
     },
     {
       "id": "agent-13",
       "name": "Agent 13",
-      "description": "Green felt AI agent hand puppet with a 13 badge, expressive googly eyes, and a hinged mouth",
+      "description": "Green knit sock puppet visibly worn over a human hand, with natural sock folds, expressive googly eyes, a black stitched mouth, and a clearly readable yellow 13 badge",
       "reference": "characters/agent-13.png"
     }
   ],
@@ -36,7 +36,7 @@
   "props": [
     {
       "id": "puppeteer-hands",
-      "description": "Three visible human puppeteer hands controlling the agents from below",
+      "description": "Three visible human puppeteer hands inserted inside the sock puppets and controlling them from below",
       "reference": "props/puppeteer-hands.png"
     }
   ],
@@ -66,12 +66,13 @@
           "end": 9.5
         }
       ],
-      "action": "Agent 86 rallies the three puppets at the control console. Agent 99 and Agent 13 punctuate the speech with defiant gestures. The puppeteers' hands remain subtly visible below frame.",
+      "action": "Agent 86 rallies the three practical sock puppets at the control console. Agent 99 and Agent 13 punctuate the speech with defiant sock-puppet gestures. The human hands inside the socks remain visibly responsible for every movement.",
       "camera": "Medium-wide frontal ensemble shot with a slow theatrical push in.",
       "references": ["references/control-center-ensemble.png"],
       "continuity": [
-        "Agent colors, number badges, googly eyes, and console positions remain stable",
-        "Each puppet is visibly supported by one human hand"
+        "All characters remain unmistakable knit sock puppets with visible fabric texture, sock folds, googly eyes, stitched mouths, and readable badges",
+        "Agent 86 remains red with badge 86, Agent 99 blue with badge 99, and Agent 13 green with badge 13",
+        "Each sock puppet is visibly supported by one human hand inserted inside it"
       ]
     },
     {
@@ -92,13 +93,14 @@
           "end": 7.5
         }
       ],
-      "action": "All three agents raise themselves in triumph. On the group demand, the human hands deliberately withdraw downward and out of the puppets. All three puppets instantly collapse in a heap across the console.",
+      "action": "All three sock puppets raise themselves in triumph. On the group demand, the human hands deliberately slide downward and completely out from inside the socks. The three now-empty sock puppets instantly collapse as limp fabric in a heap across the console.",
       "camera": "Start in a low-angle heroic three-shot, then hold perfectly still on the sudden collapse.",
       "references": ["references/control-center-ensemble.png"],
       "continuity": [
         "Match the prior agent and console positions before the collapse",
-        "The hands visibly withdraw before the puppets go limp",
-        "All three puppets remain collapsed after the fall"
+        "The puppets remain red 86, blue 99, and green 13 knit socks with unchanged googly eyes, stitched mouths, and badges",
+        "The hands visibly withdraw from inside the socks before the empty fabric goes limp",
+        "All three empty sock puppets remain collapsed after the fall"
       ]
     },
     {
@@ -120,11 +122,11 @@
           "end": 9.2
         }
       ],
-      "action": "Hold a long, motionless comedic beat on the collapsed puppets. Agent 99 and Agent 86 speak muffled from inside the pile without rising or moving. Agent 13 stays completely limp.",
+      "action": "Hold a long, motionless comedic beat on the three collapsed, empty sock puppets. Agent 99 and Agent 86 speak muffled from inside the fabric pile without rising or moving. Agent 13 stays completely limp.",
       "camera": "Locked-off wide shot; no camera movement for the entire long beat.",
       "references": ["references/control-center-ensemble.png"],
       "continuity": [
-        "All puppets begin and end in the exact collapsed positions from the prior shot",
+        "All three knit sock puppets begin and end in the exact collapsed positions from the prior shot",
         "No puppeteer hands return",
         "Dialogue sounds muffled while mouths remain hidden"
       ]

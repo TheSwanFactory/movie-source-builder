@@ -29,7 +29,13 @@ const configuration = JSON.parse(
 
 describe("schemas", () => {
   it("accepts the example manifest", () => {
-    expect(msbManifestSchema.parse(manifest).shots).toHaveLength(3);
+    const parsed = msbManifestSchema.parse(manifest);
+    expect(parsed.shots).toHaveLength(3);
+    expect(
+      parsed.characters.every((character) =>
+        character.description.includes("sock puppet"),
+      ),
+    ).toBe(true);
   });
 
   it("rejects unsupported major versions", () => {
