@@ -13,6 +13,8 @@ import {
   loadMsbc,
   renderMovie,
   referencedAssets,
+  validateManifestSemantics,
+  validateRendererInputs,
   verifyRendererAuthentication,
 } from "./render.js";
 import { msbManifestSchema, msboOutputSchema } from "./schema.js";
@@ -51,10 +53,18 @@ program
   .command("validate")
   .description("Validate a Movie Source Bundle")
   .argument("<file>")
-  .action(async (file) => {
+  .option(
+    "-c, --config <file>",
+    "also validate renderer-specific inputs against an MSBC",
+  )
+  .action(async (file, options) => {
     const loaded = await loadMsb(file);
+    if (options.config) {
+      const { configuration } = await loadMsbc(options.config);
+      validateRendererInputs(loaded.manifest, loaded.entries, configuration);
+    }
     console.log(
-      `Valid MSB: ${loaded.manifest.project.title} (${loaded.manifest.shots.length} shots)`,
+      `Valid MSB: ${loaded.manifest.project.title} (${loaded.manifest.shots.length} shots)${options.config ? ` for ${options.config}` : ""}`,
     );
   });
 
@@ -226,6 +236,7 @@ async function loadManifestDirectory(directory: string): Promise<void> {
   if (!info.isDirectory()) throw new Error("pack input must be a directory");
   const raw = await readFile(path.join(directory, "msb.json"));
   const manifest = msbManifestSchema.parse(JSON.parse(raw.toString()));
+  validateManifestSemantics(manifest);
   for (const asset of referencedAssets(manifest)) {
     const assetPath = path.join(directory, asset);
     const assetInfo = await stat(assetPath).catch(() => null);
