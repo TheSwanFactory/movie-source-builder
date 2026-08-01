@@ -2,6 +2,7 @@ import { mkdtemp, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { execa } from "execa";
 import { writeArchiveFromDirectory } from "../src/archive.js";
 import { readArchive } from "../src/archive.js";
 import { exportMovie } from "../src/export.js";
@@ -30,5 +31,24 @@ describe("mocked end-to-end movie", () => {
     ).toBe("complete");
     await exportMovie(output, movie);
     expect((await stat(movie)).size).toBeGreaterThan(1_000);
+
+    await execa(process.execPath, [
+      "dist/cli.js",
+      "make",
+      bundle,
+      "--config",
+      path.resolve("msbc/mock.msbc"),
+      "--out",
+      movie,
+      "--force",
+    ]);
+    const rerunOutput = msboOutputSchema.parse(
+      JSON.parse((await readArchive(output)).get("msbo.json")!.toString()),
+    );
+    expect(
+      rerunOutput.shots.every((shot) =>
+        shot.warnings.includes("reused from prior output"),
+      ),
+    ).toBe(true);
   }, 60_000);
 });

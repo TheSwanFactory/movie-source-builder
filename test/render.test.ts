@@ -1,8 +1,12 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { writeArchiveFromDirectory } from "../src/archive.js";
+import {
+  readArchive,
+  writeArchive,
+  writeArchiveFromDirectory,
+} from "../src/archive.js";
 import {
   createPlan,
   falInput,
@@ -137,17 +141,95 @@ describe("render planning", () => {
   it("reuses unchanged completed shots", async () => {
     const output = `${bundle}.reuse.msbo`;
     await renderMovie(bundle, { output, configuration });
+    const entries = await readArchive(output);
     const second = await createPlan(
       bundle,
       configuration,
-      JSON.parse(
-        (await (await import("../src/archive.js")).readArchive(output))
-          .get("msbo.json")!
-          .toString(),
-      ),
+      JSON.parse(entries.get("msbo.json")!.toString()),
+      entries,
     );
     expect(second.units.every((unit) => unit.reused)).toBe(true);
     expect(second.estimatedCost).toBe(0);
+  }, 60_000);
+
+  it("does not reuse cached shots with corrupted media", async () => {
+    const output = `${bundle}.corrupt-cache.msbo`;
+    await renderMovie(bundle, { output, configuration });
+    const entries = await readArchive(output);
+    const previous = JSON.parse(entries.get("msbo.json")!.toString());
+    entries.set(previous.shots[0].mediaPath, Buffer.from("corrupted"));
+    await writeArchive(entries, output);
+
+    const metadataOnlyPlan = await createPlan(bundle, configuration, previous);
+    expect(metadataOnlyPlan.units.every((unit) => unit.reused)).toBe(true);
+
+    const corruptedEntries = await readArchive(output);
+    const plan = await createPlan(
+      bundle,
+      configuration,
+      previous,
+      corruptedEntries,
+    );
+    expect(plan.units[0]!.reused).toBe(false);
+    expect(plan.units.slice(1).every((unit) => unit.reused)).toBe(true);
+  }, 60_000);
+
+  it("uses the same validated duplicate cache entry for plan and render", async () => {
+    const output = `${bundle}.duplicate-cache.msbo`;
+    await renderMovie(bundle, { output, configuration });
+    const entries = await readArchive(output);
+    const previous = JSON.parse(entries.get("msbo.json")!.toString());
+    const valid = previous.shots[0];
+    const corruptPath = "shots/corrupt.mp4";
+    previous.shots.unshift({ ...valid, mediaPath: corruptPath });
+    entries.set(corruptPath, Buffer.from("corrupted"));
+    entries.set("msbo.json", Buffer.from(JSON.stringify(previous)));
+    await writeArchive(entries, output);
+
+    await renderMovie(bundle, { output, configuration });
+    const rerendered = JSON.parse(
+      (await readArchive(output)).get("msbo.json")!.toString(),
+    );
+    expect(rerendered.shots[0].requestId).toBe(valid.requestId);
+    expect(rerendered.shots[0].warnings).toContain("reused from prior output");
+  }, 60_000);
+
+  it("stops scheduling new shots after a concurrent worker fails", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "msb-render-failure-"));
+    const workDir = path.join(root, "work");
+    let rejectFirst!: (error: Error) => void;
+    const firstRender = new Promise<never>((_resolve, reject) => {
+      rejectFirst = reject;
+    });
+    let calls = 0;
+    const execa = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) return firstRender;
+      rejectFirst(new Error("first worker failed"));
+      await new Promise((resolve) => setImmediate(resolve));
+      throw new Error("second worker stopped");
+    });
+    vi.doMock("execa", () => ({ execa }));
+    try {
+      await expect(
+        renderMovie(bundle, {
+          output: path.join(root, "output.msbo"),
+          configuration,
+          workDir,
+          concurrency: 2,
+        }),
+      ).rejects.toThrow("first worker failed");
+    } finally {
+      vi.doUnmock("execa");
+    }
+
+    const checkpoint = JSON.parse(
+      await readFile(path.join(workDir, "msbo.json"), "utf8"),
+    );
+    expect(execa).toHaveBeenCalledTimes(2);
+    expect(checkpoint.status).toBe("failed");
+    expect(checkpoint.shots[0].status).toBe("failed");
+    expect(checkpoint.shots[2].status).toBe("pending");
   }, 60_000);
 });
 

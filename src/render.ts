@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { readArchive, writeArchive } from "./archive.js";
 import {
@@ -14,6 +15,9 @@ import {
 } from "./schema.js";
 
 const FALLBACK_COST_PER_SECOND = 0.05;
+const packageJson = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+);
 export const hash = (value: Buffer | string) =>
   createHash("sha256").update(value).digest("hex");
 
@@ -55,12 +59,19 @@ export interface AuthenticationVerification {
   message: string;
 }
 
+function requireFalKey(): string {
+  const key = process.env.FAL_KEY?.trim();
+  if (!key)
+    throw new Error("missing required renderer environment variable: FAL_KEY");
+  return key;
+}
+
 export async function verifyRendererAuthentication(
   configurationFile: string,
 ): Promise<AuthenticationVerification> {
   const { configuration } = await loadMsbc(configurationFile);
   const missing = configuration.renderer.requiredEnvironmentVariables.filter(
-    (name) => !process.env[name],
+    (name) => !process.env[name]?.trim(),
   );
   if (missing.length > 0)
     throw new Error(
@@ -78,10 +89,11 @@ export async function verifyRendererAuthentication(
     throw new Error(
       `authentication verification is unsupported for provider: ${configuration.renderer.provider}`,
     );
+  const falKey = requireFalKey();
   const url = new URL("https://api.fal.ai/v1/models");
   url.searchParams.set("limit", "1");
   const response = await fetch(url, {
-    headers: { Authorization: `Key ${process.env.FAL_KEY}` },
+    headers: { Authorization: `Key ${falKey}` },
   });
   if (!response.ok)
     throw new Error(`fal authentication failed: HTTP ${response.status}`);
@@ -186,14 +198,11 @@ export async function createPlan(
   file: string,
   configurationFile: string,
   previous?: MsboOutput,
+  previousEntries?: Map<string, Buffer>,
 ): Promise<RenderPlan> {
   const loaded = await loadMsb(file);
   const configured = await loadMsbc(configurationFile);
-  const completed = new Map(
-    previous?.shots
-      .filter((shot) => shot.status === "complete")
-      .map((shot) => [shot.cacheKey, shot]) ?? [],
-  );
+  const completed = reusableShotMap(previous, previousEntries);
   const units = loaded.manifest.shots.map((shot) => {
     const refs = referencedAssets({ ...loaded.manifest, shots: [shot] }).map(
       (name) => [name, hash(loaded.entries.get(name) ?? "")],
@@ -229,6 +238,28 @@ export async function createPlan(
   };
 }
 
+function reusableShotMap(
+  previous?: MsboOutput,
+  previousEntries?: Map<string, Buffer>,
+): Map<string, { shot: MsboOutput["shots"][number]; media?: Buffer }> {
+  const reusable = new Map<
+    string,
+    { shot: MsboOutput["shots"][number]; media?: Buffer }
+  >();
+  for (const shot of previous?.shots ?? []) {
+    if (shot.status !== "complete") continue;
+    if (previousEntries === undefined) {
+      reusable.set(shot.cacheKey, { shot });
+      continue;
+    }
+    if (!shot.mediaPath || !shot.mediaHash) continue;
+    const media = previousEntries.get(shot.mediaPath);
+    if (media !== undefined && hash(media) === shot.mediaHash)
+      reusable.set(shot.cacheKey, { shot, media });
+  }
+  return reusable;
+}
+
 async function atomicJson(file: string, value: unknown): Promise<void> {
   const temporary = `${file}.${process.pid}.tmp`;
   await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`);
@@ -242,6 +273,8 @@ export interface RenderOptions {
   maxCost?: number;
   workDir?: string;
   force?: boolean;
+  concurrency?: number;
+  keepWorkDir?: boolean;
 }
 
 export async function renderMovie(
@@ -250,17 +283,24 @@ export async function renderMovie(
 ): Promise<RenderPlan> {
   let previous: MsboOutput | undefined;
   let previousEntries: Map<string, Buffer> | undefined;
-  try {
-    previousEntries = await readArchive(options.output);
-    const raw = previousEntries.get("msbo.json");
-    if (raw) previous = msboOutputSchema.parse(JSON.parse(raw.toString()));
-  } catch {
-    previous = undefined;
+  if (!options.force) {
+    try {
+      previousEntries = await readArchive(options.output);
+      const raw = previousEntries.get("msbo.json");
+      if (raw) previous = msboOutputSchema.parse(JSON.parse(raw.toString()));
+    } catch {
+      previous = undefined;
+    }
   }
-  const plan = await createPlan(source, options.configuration, previous);
+  const plan = await createPlan(
+    source,
+    options.configuration,
+    previous,
+    previousEntries,
+  );
   const missingEnvironmentVariables =
     plan.configuration.renderer.requiredEnvironmentVariables.filter(
-      (name) => !process.env[name],
+      (name) => !process.env[name]?.trim(),
     );
   if (missingEnvironmentVariables.length > 0)
     throw new Error(
@@ -278,6 +318,8 @@ export async function renderMovie(
       `estimated cost $${plan.estimatedCost.toFixed(2)} exceeds --max-cost $${options.maxCost.toFixed(2)}`,
     );
   const work = path.resolve(options.workDir ?? `${options.output}.work`);
+  if (options.force) previous = undefined;
+  const reusableShots = reusableShotMap(previous, previousEntries);
   await mkdir(path.join(work, "shots"), { recursive: true });
   const now = new Date().toISOString();
   const output: MsboOutput = {
@@ -288,7 +330,7 @@ export async function renderMovie(
       title: plan.manifest.project.title,
     },
     configuration: { hash: plan.configurationHash },
-    tool: { name: "movie-source-builder", version: "0.2.0" },
+    tool: { name: "movie-source-builder", version: packageJson.version },
     settings: {
       width: plan.configuration.output.width,
       height: plan.configuration.output.height,
@@ -316,62 +358,88 @@ export async function renderMovie(
   const ffmpeg = (await import("ffmpeg-static")).default as unknown as
     string | null;
   if (!ffmpeg) throw new Error("bundled ffmpeg is unavailable");
-  for (let index = 0; index < plan.units.length; index++) {
-    const unit = plan.units[index]!;
-    const result = output.shots[index]!;
-    const media = path.join(work, "shots", `${unit.id}.mp4`);
-    const reusable = previous?.shots.find(
-      (shot) => shot.status === "complete" && shot.cacheKey === unit.cacheKey,
+  const concurrency = Math.max(1, options.concurrency ?? 1);
+  let nextIndex = 0;
+  let stopped = false;
+  let firstRenderError: unknown;
+  let outputWriteChain = Promise.resolve();
+  const writeOutput = async () => {
+    const writePromise = outputWriteChain.then(() =>
+      atomicJson(path.join(work, "msbo.json"), output),
     );
-    const reusableBytes = reusable?.mediaPath
-      ? previousEntries?.get(reusable.mediaPath)
-      : undefined;
-    if (
-      reusable &&
-      reusableBytes &&
-      reusable.mediaHash === hash(reusableBytes)
-    ) {
-      await writeFile(media, reusableBytes);
-      Object.assign(result, {
-        ...reusable,
-        id: unit.id,
-        mediaPath: `shots/${unit.id}.mp4`,
-        estimatedCost: 0,
-        actualCost: 0,
-        warnings: [...reusable.warnings, "reused from prior output"],
-      });
-      output.updatedAt = new Date().toISOString();
-      await atomicJson(path.join(work, "msbo.json"), output);
-      continue;
+    outputWriteChain = writePromise.catch(() => undefined);
+    await writePromise;
+  };
+
+  const renderWorker = async () => {
+    while (true) {
+      if (stopped) return;
+      const index = nextIndex++;
+      if (index >= plan.units.length) return;
+      const unit = plan.units[index]!;
+      const result = output.shots[index]!;
+      const media = path.join(work, "shots", `${unit.id}.mp4`);
+      try {
+        const reusable = reusableShots.get(unit.cacheKey);
+        if (reusable?.media) {
+          await writeFile(media, reusable.media);
+          Object.assign(result, {
+            ...reusable.shot,
+            id: unit.id,
+            mediaPath: `shots/${unit.id}.mp4`,
+            estimatedCost: 0,
+            actualCost: 0,
+            warnings: [...reusable.shot.warnings, "reused from prior output"],
+          });
+          output.updatedAt = new Date().toISOString();
+          await writeOutput();
+          continue;
+        }
+        const isFal = plan.configuration.renderer.provider === "fal";
+        const requestId = isFal
+          ? await renderFalShot(plan, index, media, ffmpeg)
+          : await renderMockShot(unit, output.settings, media, ffmpeg);
+        const bytes = await readFile(media);
+        Object.assign(result, {
+          status: "complete",
+          mediaPath: `shots/${unit.id}.mp4`,
+          mediaHash: hash(bytes),
+          requestId,
+          actualCost: isFal ? unit.estimatedCost : 0,
+          attempts: 1,
+          completedAt: new Date().toISOString(),
+        });
+        if (isFal) output.actualCost += unit.estimatedCost;
+        output.updatedAt = new Date().toISOString();
+        await writeOutput();
+      } catch (error) {
+        stopped = true;
+        firstRenderError ??= error;
+        result.status = "failed";
+        result.attempts = 1;
+        result.error = error instanceof Error ? error.message : String(error);
+        output.status = "failed";
+        output.updatedAt = new Date().toISOString();
+        try {
+          await writeOutput();
+        } catch {
+          // Preserve the first error; all workers are still awaited below.
+        }
+        return;
+      }
     }
-    try {
-      const isFal = plan.configuration.renderer.provider === "fal";
-      const requestId = isFal
-        ? await renderFalShot(plan, index, media, ffmpeg)
-        : await renderMockShot(unit, output.settings, media, ffmpeg);
-      const bytes = await readFile(media);
-      Object.assign(result, {
-        status: "complete",
-        mediaPath: `shots/${unit.id}.mp4`,
-        mediaHash: hash(bytes),
-        requestId,
-        actualCost: isFal ? unit.estimatedCost : 0,
-        attempts: 1,
-        completedAt: new Date().toISOString(),
-      });
-      if (isFal) output.actualCost += unit.estimatedCost;
-    } catch (error) {
-      result.status = "failed";
-      result.attempts = 1;
-      result.error = error instanceof Error ? error.message : String(error);
-      output.status = "failed";
-      output.updatedAt = new Date().toISOString();
-      await atomicJson(path.join(work, "msbo.json"), output);
-      throw error;
-    }
-    output.updatedAt = new Date().toISOString();
-    await atomicJson(path.join(work, "msbo.json"), output);
-  }
+  };
+
+  const workerResults = await Promise.allSettled(
+    Array.from(
+      { length: Math.min(concurrency, plan.units.length) },
+      renderWorker,
+    ),
+  );
+  firstRenderError ??= workerResults.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  )?.reason;
+  if (firstRenderError) throw firstRenderError;
   output.status = "complete";
   output.updatedAt = new Date().toISOString();
   await atomicJson(path.join(work, "msbo.json"), output);
@@ -390,15 +458,17 @@ export async function renderMovie(
       await readFile(path.join(work, shot.mediaPath!)),
     );
   await writeArchive(archive, options.output);
-  if (!options.workDir) await rm(work, { recursive: true, force: true });
+  if (!options.workDir && !options.keepWorkDir)
+    await rm(work, { recursive: true, force: true });
   return plan;
 }
 
 async function applyFalPricing(plan: RenderPlan): Promise<void> {
+  const falKey = requireFalKey();
   const url = new URL("https://api.fal.ai/v1/models/pricing");
   url.searchParams.set("endpoint_id", plan.configuration.renderer.model);
   const response = await fetch(url, {
-    headers: { Authorization: `Key ${process.env.FAL_KEY}` },
+    headers: { Authorization: `Key ${falKey}` },
   });
   if (!response.ok)
     throw new Error(`failed to retrieve fal pricing: HTTP ${response.status}`);
@@ -484,6 +554,7 @@ async function renderFalShot(
     "pending-upload",
   );
   const { fal } = await import("@fal-ai/client");
+  fal.config({ credentials: requireFalKey() });
   const imageUrl = await fal.storage.upload(
     new Blob([new Uint8Array(bytes)], { type: mime }),
   );

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFile, stat } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,14 +12,18 @@ import {
   loadMsb,
   loadMsbc,
   renderMovie,
+  referencedAssets,
   verifyRendererAuthentication,
 } from "./render.js";
-import { msboOutputSchema } from "./schema.js";
+import { msbManifestSchema, msboOutputSchema } from "./schema.js";
 
+const packageJson = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+);
 const program = new Command()
   .name("msb")
   .description("Build and render Movie Source Bundles")
-  .version("0.2.0");
+  .version(packageJson.version);
 if (existsSync(".env")) loadEnvFile(".env");
 const DEFAULT_CONFIGURATION = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -106,7 +110,10 @@ program
     );
   });
 
-function renderOptions(command: Command): Command {
+function renderOptions(
+  command: Command,
+  forceDescription = "ignore reusable output and render every shot",
+): Command {
   return command
     .option("-o, --out <file>", "explicit output path; defaults under ./build")
     .option(
@@ -117,7 +124,8 @@ function renderOptions(command: Command): Command {
     .option("--work-dir <path>")
     .option("--concurrency <number>", "parallel requests", number, 2)
     .option("--max-cost <usd>", "maximum new generation cost", number)
-    .option("--force")
+    .option("--force", forceDescription)
+    .option("--fresh", "ignore reusable output and render every shot")
     .option("--keep-work-dir");
 }
 
@@ -136,6 +144,9 @@ renderOptions(
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
+    force: options.force || options.fresh,
+    concurrency: options.concurrency,
+    keepWorkDir: options.keepWorkDir,
   });
   if (options.dryRun)
     console.log(
@@ -160,6 +171,10 @@ program
   .requiredOption("-o, --out <file>")
   .option("--force")
   .action(async (file, options) => {
+    if (existsSync(options.out) && !options.force)
+      throw new Error(
+        `output exists: ${options.out}; pass --force to overwrite`,
+      );
     await exportMovie(file, options.out);
     console.log(`Wrote ${options.out}`);
   });
@@ -169,6 +184,7 @@ renderOptions(
     .command("make")
     .description("Render and export in one command")
     .argument("<file>"),
+  "overwrite an existing MP4",
 ).action(async (file, options) => {
   const configuration = options.config ?? DEFAULT_CONFIGURATION;
   const defaults = defaultBuildPaths(file, configuration);
@@ -176,12 +192,17 @@ renderOptions(
   const msbo = options.out
     ? movie.replace(/\.mp4$/i, "") + ".msbo"
     : defaults.msbo;
+  if (!options.dryRun && existsSync(movie) && !options.force)
+    throw new Error(`output exists: ${movie}; pass --force to overwrite`);
   const plan = await renderMovie(file, {
     output: msbo,
     configuration,
     dryRun: options.dryRun,
     maxCost: options.maxCost,
     workDir: options.workDir,
+    force: options.fresh,
+    concurrency: options.concurrency,
+    keepWorkDir: options.keepWorkDir,
   });
   if (!options.dryRun) await exportMovie(msbo, movie);
   console.log(
@@ -204,8 +225,13 @@ async function loadManifestDirectory(directory: string): Promise<void> {
   const info = await stat(directory);
   if (!info.isDirectory()) throw new Error("pack input must be a directory");
   const raw = await readFile(path.join(directory, "msb.json"));
-  const { msbManifestSchema } = await import("./schema.js");
-  msbManifestSchema.parse(JSON.parse(raw.toString()));
+  const manifest = msbManifestSchema.parse(JSON.parse(raw.toString()));
+  for (const asset of referencedAssets(manifest)) {
+    const assetPath = path.join(directory, asset);
+    const assetInfo = await stat(assetPath).catch(() => null);
+    if (!assetInfo?.isFile())
+      throw new Error(`referenced asset is missing or invalid: ${asset}`);
+  }
 }
 
 program.parseAsync().catch((error: unknown) => {
