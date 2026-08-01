@@ -41,8 +41,21 @@ Omit `--config` to verify the packaged default profile. A successful response co
 
 Each fal image-to-video shot must declare exactly one explicit PNG, JPEG, WebP, or AVIF path in its `references` array. Pack the source and render it with any fal profile:
 
+That explicit shot reference is the **only image uploaded for the request**. Character, location, and prop `reference` fields are not composited and are not separately sent to fal. For a multi-character shot, create one canonical image containing the complete cast and setting, then place its path in `shot.references`:
+
+```json
+{
+  "characters": ["agent-86", "agent-99", "agent-13"],
+  "location": "ai-control-center",
+  "references": ["references/control-center-ensemble.png"]
+}
+```
+
+Do not use an isolated prop, location plate, or single-character sheet as the shot reference when the generated frame must contain an ensemble.
+
 ```bash
 msb pack path/to/source --out movie.msb
+msb validate movie.msb --config msbc/fal-hailuo-02-standard.msbc
 msb render movie.msb \
   --config msbc/fal-hailuo-02-standard.msbc \
   --out movie.msbo \
@@ -50,6 +63,10 @@ msb render movie.msb \
 ```
 
 Use `--dry-run` first to inspect planned requests and estimated cost without uploading assets or calling fal.
+
+Configured validation and every render preflight verify that each fal shot has exactly one explicit reference, that its extension is supported, that its bytes match the declared raster format, that the model adapter is registered, and that the shot duration is supported. Failure occurs before authentication, pricing, upload, or generation.
+
+Each shot is currently an independent image-to-video request. `continuity` is added to the prompt, but the renderer does not pass the last frame of one shot into the next. Reusing a canonical ensemble image and stating concrete identity invariants improves consistency but does not guarantee it. Read the complete [MSB authoring and continuity guide](../docs/msb-authoring.md) before a paid render.
 
 ## Engine profiles
 

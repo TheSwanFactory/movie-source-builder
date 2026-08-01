@@ -161,6 +161,48 @@ export function referencedAssets(manifest: MsbManifest): string[] {
   ];
 }
 
+function requireUniqueIds(
+  label: string,
+  items: ReadonlyArray<{ id: string }>,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const item of items) {
+    if (ids.has(item.id)) throw new Error(`duplicate ${label} id: ${item.id}`);
+    ids.add(item.id);
+  }
+  return ids;
+}
+
+export function validateManifestSemantics(manifest: MsbManifest): void {
+  const characterIds = requireUniqueIds("character", manifest.characters);
+  const locationIds = requireUniqueIds("location", manifest.locations);
+  requireUniqueIds("prop", manifest.props);
+  requireUniqueIds("shot", manifest.shots);
+  for (const shot of manifest.shots) {
+    if (new Set(shot.characters).size !== shot.characters.length)
+      throw new Error(`shot ${shot.id} contains duplicate character ids`);
+    for (const id of shot.characters)
+      if (!characterIds.has(id))
+        throw new Error(`shot ${shot.id} references unknown character: ${id}`);
+    if (shot.location && !locationIds.has(shot.location))
+      throw new Error(
+        `shot ${shot.id} references unknown location: ${shot.location}`,
+      );
+    for (const line of shot.dialogue) {
+      if (line.character && !characterIds.has(line.character))
+        throw new Error(
+          `shot ${shot.id} dialogue references unknown character: ${line.character}`,
+        );
+      if (line.character && !shot.characters.includes(line.character))
+        throw new Error(
+          `shot ${shot.id} dialogue character is absent from the shot: ${line.character}`,
+        );
+      if (line.end > shot.duration)
+        throw new Error(`dialogue exceeds shot ${shot.id} duration`);
+    }
+  }
+}
+
 export async function loadMsb(file: string): Promise<{
   entries: Map<string, Buffer>;
   manifest: MsbManifest;
@@ -171,27 +213,110 @@ export async function loadMsb(file: string): Promise<{
   const raw = entries.get("msb.json");
   if (!raw) throw new Error("msb.json is required");
   const manifest = msbManifestSchema.parse(JSON.parse(raw.toString("utf8")));
+  validateManifestSemantics(manifest);
   for (const asset of referencedAssets(manifest))
     if (!entries.has(asset))
       throw new Error(`referenced asset is missing: ${asset}`);
-  const characterIds = new Set(manifest.characters.map((item) => item.id));
-  const locationIds = new Set(manifest.locations.map((item) => item.id));
-  const shotIds = new Set<string>();
-  for (const shot of manifest.shots) {
-    if (shotIds.has(shot.id)) throw new Error(`duplicate shot id: ${shot.id}`);
-    shotIds.add(shot.id);
-    for (const id of shot.characters)
-      if (!characterIds.has(id))
-        throw new Error(`shot ${shot.id} references unknown character: ${id}`);
-    if (shot.location && !locationIds.has(shot.location))
-      throw new Error(
-        `shot ${shot.id} references unknown location: ${shot.location}`,
-      );
-    for (const line of shot.dialogue)
-      if (line.end > shot.duration)
-        throw new Error(`dialogue exceeds shot ${shot.id} duration`);
-  }
   return { entries, manifest, sourceHash: hash(bytes) };
+}
+
+type RendererInputContract = {
+  validate(
+    manifest: MsbManifest,
+    entries: Map<string, Buffer>,
+    configuration: MsbcConfiguration,
+  ): void;
+};
+
+const rendererInputContracts: Record<string, RendererInputContract> = {
+  mock: { validate: () => undefined },
+  fal: {
+    validate: (manifest, entries, configuration) => {
+      const model = configuration.renderer.model;
+      if (!isSupportedFalModel(model))
+        throw new Error(`unsupported fal renderer model: ${model}`);
+      for (const shot of manifest.shots) {
+        if (shot.references.length !== 1)
+          throw new Error(
+            `fal shot ${shot.id} requires exactly one explicit raster reference in shot.references`,
+          );
+        const reference = shot.references[0]!;
+        const bytes = entries.get(reference);
+        if (!bytes)
+          throw new Error(`referenced asset is missing: ${reference}`);
+        validateRasterReference(reference, bytes);
+        validateFalShotModelInput(model, shot);
+      }
+    },
+  },
+};
+
+export function validateRendererInputs(
+  manifest: MsbManifest,
+  entries: Map<string, Buffer>,
+  configuration: MsbcConfiguration,
+): void {
+  const provider = configuration.renderer.provider;
+  const contract = rendererInputContracts[provider];
+  if (!contract) throw new Error(`unsupported renderer provider: ${provider}`);
+  contract.validate(manifest, entries, configuration);
+}
+
+function isSupportedFalModel(model: string): boolean {
+  return (
+    model.includes("minimax/hailuo-02") ||
+    model.includes("veo3.1") ||
+    model.includes("ltx-2.3")
+  );
+}
+
+function validateFalShotModelInput(
+  model: string,
+  shot: MsbManifest["shots"][number],
+): void {
+  if (model.includes("veo3.1") && shot.duration === 10)
+    throw new Error(`Veo 3.1 does not support 10-second shot ${shot.id}`);
+}
+
+function validateRasterReference(name: string, bytes: Buffer): void {
+  const declared = imageMimeType(name);
+  const detected = detectRasterMimeType(bytes);
+  if (!detected)
+    throw new Error(
+      `fal reference is not a valid PNG, JPEG, WebP, or AVIF: ${name}`,
+    );
+  if (declared !== detected)
+    throw new Error(
+      `fal reference extension does not match file content: ${name} (${declared} != ${detected})`,
+    );
+}
+
+function detectRasterMimeType(bytes: Buffer): string | undefined {
+  if (
+    bytes.length >= 8 &&
+    bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  )
+    return "image/png";
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  )
+    return "image/jpeg";
+  if (
+    bytes.length >= 12 &&
+    bytes.toString("ascii", 0, 4) === "RIFF" &&
+    bytes.toString("ascii", 8, 12) === "WEBP"
+  )
+    return "image/webp";
+  if (
+    bytes.length >= 12 &&
+    bytes.toString("ascii", 4, 8) === "ftyp" &&
+    ["avif", "avis"].includes(bytes.toString("ascii", 8, 12))
+  )
+    return "image/avif";
+  return undefined;
 }
 
 export async function createPlan(
@@ -202,6 +327,11 @@ export async function createPlan(
 ): Promise<RenderPlan> {
   const loaded = await loadMsb(file);
   const configured = await loadMsbc(configurationFile);
+  validateRendererInputs(
+    loaded.manifest,
+    loaded.entries,
+    configured.configuration,
+  );
   const completed = reusableShotMap(previous, previousEntries);
   const units = loaded.manifest.shots.map((shot) => {
     const refs = referencedAssets({ ...loaded.manifest, shots: [shot] }).map(
@@ -305,10 +435,6 @@ export async function renderMovie(
   if (missingEnvironmentVariables.length > 0)
     throw new Error(
       `missing required renderer environment variables: ${missingEnvironmentVariables.join(", ")}`,
-    );
-  if (!new Set(["mock", "fal"]).has(plan.configuration.renderer.provider))
-    throw new Error(
-      `unsupported renderer provider: ${plan.configuration.renderer.provider}`,
     );
   if (options.dryRun) return plan;
   if (plan.configuration.renderer.provider === "fal")
@@ -539,10 +665,6 @@ async function renderFalShot(
   ffmpeg: string,
 ): Promise<string> {
   const shot = plan.manifest.shots[index]!;
-  if (shot.references.length !== 1)
-    throw new Error(
-      `fal shot ${shot.id} requires exactly one explicit raster reference`,
-    );
   const reference = shot.references[0]!;
   const bytes = plan.entries.get(reference);
   if (!bytes) throw new Error(`referenced asset is missing: ${reference}`);
@@ -641,8 +763,6 @@ export function falInput(
       resolution: output.height >= 768 ? "768P" : "512P",
     };
   if (model.includes("veo3.1")) {
-    if (shot.duration === 10)
-      throw new Error(`Veo 3.1 does not support 10-second shot ${shot.id}`);
     return {
       ...common,
       duration: `${shot.duration}s`,

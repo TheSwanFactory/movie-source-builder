@@ -15,10 +15,7 @@ describe("mocked end-to-end movie", () => {
     const bundle = path.join(root, "sample.msb");
     const output = path.join(root, "sample.msbo");
     const movie = path.join(root, "sample.mp4");
-    await writeArchiveFromDirectory(
-      path.resolve("examples/compound-interest"),
-      bundle,
-    );
+    await writeArchiveFromDirectory(path.resolve("examples/skit-poc"), bundle);
     await renderMovie(bundle, {
       output,
       configuration: path.resolve("msbc/mock.msbc"),

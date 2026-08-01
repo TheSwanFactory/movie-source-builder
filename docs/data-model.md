@@ -12,6 +12,10 @@ Content-independent JSON engine definition containing its format version, techni
 
 Stable ID, 6- or 10-second duration, character/location references, timed dialogue or narration, visual action, camera direction, asset references, and continuity.
 
+`characters` and `location` refer to manifest entities; their entity-level reference images are packaged source documentation and cache inputs. `references` is different: it is the explicit provider input for the shot. The current fal adapter accepts exactly one raster image and sends only that image as `image_url`. It does not composite entity references. See [Authoring Movie Source Bundles](msb-authoring.md).
+
+`continuity` is prompt text. It does not lock identity or pass the previous shot's final frame into the next request; current video requests are independent.
+
 ## RenderPlanUnit
 
 Shot identity, normalized provider inputs, deterministic cache key, reuse status, provider/model, estimated cost, and required credentials.
