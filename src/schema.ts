@@ -145,6 +145,8 @@ export const shotResultSchema = z.object({
   provider: z.string(),
   model: z.string(),
   requestId: z.string().optional(),
+  providerInput: z.record(z.string(), z.unknown()).optional(),
+  providerInputHash: z.string().optional(),
   estimatedCost: z.number().nonnegative(),
   actualCost: z.number().nonnegative(),
   attempts: z.number().int().nonnegative(),
@@ -169,7 +171,7 @@ export const shotResultSchema = z.object({
 });
 
 export const msboOutputSchema = z.object({
-  kind: z.enum(["render", "storyboard"]).optional(),
+  kind: z.enum(["render", "storyboard", "previz"]).optional(),
   formatVersion: z.string().regex(/^1\.\d+\.\d+$/),
   source: z.object({ hash: z.string(), projectId: id, title: z.string() }),
   configuration: z.object({ hash: z.string() }),
@@ -201,6 +203,22 @@ export const msboOutputSchema = z.object({
       networkRequests: z.literal(0),
       assetHashes: z.record(z.string(), z.string()),
       creativeInputHash: z.string(),
+      approval: z
+        .object({
+          approvedAt: z.string().datetime(),
+          creativeInputHash: z.string(),
+          artifactHash: z.string(),
+        })
+        .optional(),
+    })
+    .optional(),
+  previz: z
+    .object({
+      movie: relativePath,
+      movieHash: z.string(),
+      storyboardHash: z.string().optional(),
+      creativeInputHash: z.string(),
+      nonProduction: z.literal(true),
       approval: z
         .object({
           approvedAt: z.string().datetime(),

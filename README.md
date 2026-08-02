@@ -11,7 +11,7 @@ source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder
 - `.msbo` is self-contained builder output: generated scenes and audio, rendering notes, hashes, configuration snapshot, costs, status, and provenance.
 - `.mp4` is a repeatable delivery export. Export never calls an AI provider.
 
-Review progresses through four deliberately distinct stages: `storyboard → previz → render → export`. `storyboard` is the zero-cost local planning check described below. `previz` is a future provider-generated feasibility pass. `render` creates production source media, and `export` assembles an already-built output without provider calls.
+Review progresses through four deliberately distinct stages: `storyboard → previz → render → export`. `storyboard` is the zero-cost local planning check described below. `previz` is a low-cost provider feasibility pass. `render` creates production source media, and `export` assembles an already-built output without provider calls.
 
 ## Install and use
 
@@ -52,6 +52,9 @@ node dist/cli.js validate skit-poc.msb
 node dist/cli.js storyboard skit-poc.msb --out skit-poc-storyboard.msbo
 node dist/cli.js inspect skit-poc-storyboard.msbo
 node dist/cli.js approve skit-poc-storyboard.msbo --source skit-poc.msb
+node dist/cli.js previz skit-poc.msb --config msbc/previz-mock.msbc --storyboard skit-poc-storyboard.msbo --out skit-poc-previz.msbo --max-cost 0
+node dist/cli.js inspect skit-poc-previz.msbo
+node dist/cli.js approve skit-poc-previz.msbo --source skit-poc.msb
 node dist/cli.js validate skit-poc.msb --config msbc/fal-hailuo-02-standard.msbc
 node dist/cli.js inspect skit-poc.msb
 node dist/cli.js inspect msbc/mock.msbc
@@ -78,6 +81,14 @@ npm run storyboard:prompts -- movie.msb --out storyboard-prompts.json
 Each shot and dialogue event receives a hashed prompt derived from the complete authored source. Run the same command with `--check` to reject missing or reused shot references. This makes shot-state reference requirements explicit before storyboard or provider work; a shared ensemble image is not silently accepted as three visually distinct shot panels.
 
 `msb inspect storyboard.msbo` reports its duration, warnings, and approval state. After reviewing the embedded MP4 and contact sheet, bind approval to the exact source and generated artifacts with `msb approve storyboard.msbo --source movie.msb`. Approval fails clearly if any byte of the source bundle—including screenplay, dialogue, ordering, timing, references, action, camera, or continuity—has changed.
+
+## Low-cost previz review
+
+Run `msb previz movie.msb --config previz.msbc --storyboard storyboard.msbo --out previz.msbo --max-cost 2.00` to test the selected renderer before production. The configuration is always explicit: the production default is never silently used. An optional storyboard must already be approved and must match the complete source hash.
+
+`--dry-run` validates the renderer contract and plans every unit with zero provider requests. `--max-cost` stops generation before a new request is scheduled. Completed, hash-valid shots are reusable after interruption. The output records normalized provider inputs and hashes, provider/model/request IDs, costs, attempts, warnings, generated hashes, and an embedded, visibly watermarked review MP4. Use `msbc/previz-mock.msbc` for provider-free CI and contract tests.
+
+After human review, `msb approve previz.msbo --source movie.msb` binds approval to the source, storyboard approval (when supplied), effective configuration, normalized provider inputs, and generated outputs. Production can enforce that review with `msb make movie.msb --config production.msbc --approved previz.msbo`; this validates reviewed intent and artifacts, not deterministic equivalence between models.
 
 Without `--out`, each invocation writes to a gitignored, timestamped build directory:
 

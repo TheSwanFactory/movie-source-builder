@@ -19,6 +19,11 @@ import {
 } from "./render.js";
 import { msbManifestSchema, msboOutputSchema } from "./schema.js";
 import { approveStoryboard, createStoryboard } from "./storyboard.js";
+import {
+  approvePreviz,
+  createPreviz,
+  validateApprovedPreviz,
+} from "./previz.js";
 
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
@@ -85,7 +90,9 @@ program
           ? JSON.stringify(output, null, 2)
           : output.kind === "storyboard" && output.storyboard
             ? `${output.source.title}\nKind: storyboard\nStatus: ${output.status}\nDuration: ${output.storyboard.duration}s\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nWarnings: ${output.warnings.length}\nApproval: ${output.storyboard.approval ? "approved" : "unapproved"}\nCost: $0.00`
-            : `${output.source.title}\nKind: render\nStatus: ${output.status}\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nCost: $${output.actualCost.toFixed(2)}`,
+            : output.kind === "previz" && output.previz
+              ? `${output.source.title}\nKind: previz\nStatus: ${output.status}\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nWarnings: ${output.warnings.length}\nApproval: ${output.previz.approval ? "approved" : "unapproved"}\nReview movie: ${output.previz.movie}\nCost: $${output.actualCost.toFixed(2)}`
+              : `${output.source.title}\nKind: render\nStatus: ${output.status}\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nCost: $${output.actualCost.toFixed(2)}`,
       );
     } else if (file.endsWith(".msbc")) {
       const { configuration, configurationHash } = await loadMsbc(file);
@@ -124,12 +131,58 @@ program
 
 program
   .command("approve")
-  .description("Approve a storyboard against its unchanged source bundle")
+  .description("Approve a storyboard or previz against its unchanged source")
   .argument("<file>")
   .requiredOption("-s, --source <file>")
   .action(async (file, options) => {
-    await approveStoryboard(file, options.source);
+    const raw = (await readArchive(file)).get("msbo.json");
+    if (!raw) throw new Error("msbo.json is required");
+    const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
+    if (output.kind === "previz") await approvePreviz(file, options.source);
+    else await approveStoryboard(file, options.source);
     console.log(`Approved ${file}`);
+  });
+
+program
+  .command("previz")
+  .description("Create a low-cost, non-production previz .msbo")
+  .argument("<file>")
+  .requiredOption("-c, --config <file>", "explicit previz MSBC")
+  .requiredOption("-o, --out <file>")
+  .option("--storyboard <file>", "approved storyboard .msbo")
+  .option("--dry-run")
+  .option("--work-dir <path>")
+  .option("--concurrency <number>", "parallel requests", number, 2)
+  .option("--max-cost <usd>", "maximum new generation cost", number)
+  .option("--force", "ignore reusable output and generate every shot")
+  .option("--fresh", "ignore reusable output and generate every shot")
+  .option("--keep-work-dir")
+  .action(async (file, options) => {
+    const plan = await createPreviz(file, {
+      output: options.out,
+      configuration: options.config,
+      storyboard: options.storyboard,
+      dryRun: options.dryRun,
+      maxCost: options.maxCost,
+      workDir: options.workDir,
+      force: options.force || options.fresh,
+      concurrency: options.concurrency,
+      keepWorkDir: options.keepWorkDir,
+    });
+    if (options.dryRun)
+      console.log(
+        JSON.stringify(
+          {
+            shots: plan.units,
+            estimatedCost: plan.estimatedCost,
+            providerRequests: 0,
+            output: options.out,
+          },
+          null,
+          2,
+        ),
+      );
+    else console.log(`Wrote ${options.out}`);
   });
 
 program
@@ -167,6 +220,7 @@ function renderOptions(
     .option("--max-cost <usd>", "maximum new generation cost", number)
     .option("--force", forceDescription)
     .option("--fresh", "ignore reusable output and render every shot")
+    .option("--approved <file>", "require an approved previz artifact")
     .option("--keep-work-dir");
 }
 
@@ -235,6 +289,7 @@ renderOptions(
     : defaults.msbo;
   if (!options.dryRun && existsSync(movie) && !options.force)
     throw new Error(`output exists: ${movie}; pass --force to overwrite`);
+  if (options.approved) await validateApprovedPreviz(options.approved, file);
   const plan = await renderMovie(file, {
     output: msbo,
     configuration,

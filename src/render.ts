@@ -405,6 +405,7 @@ export interface RenderOptions {
   force?: boolean;
   concurrency?: number;
   keepWorkDir?: boolean;
+  kind?: "render" | "previz";
 }
 
 export async function renderMovie(
@@ -428,6 +429,10 @@ export async function renderMovie(
     previous,
     previousEntries,
   );
+  if (options.maxCost !== undefined && plan.estimatedCost > options.maxCost)
+    throw new Error(
+      `estimated cost $${plan.estimatedCost.toFixed(2)} exceeds --max-cost $${options.maxCost.toFixed(2)}`,
+    );
   const missingEnvironmentVariables =
     plan.configuration.renderer.requiredEnvironmentVariables.filter(
       (name) => !process.env[name]?.trim(),
@@ -449,7 +454,7 @@ export async function renderMovie(
   await mkdir(path.join(work, "shots"), { recursive: true });
   const now = new Date().toISOString();
   const output: MsboOutput = {
-    kind: "render",
+    kind: options.kind ?? "render",
     formatVersion: "1.0.0",
     source: {
       hash: plan.sourceHash,
@@ -469,17 +474,23 @@ export async function renderMovie(
     estimatedCost: plan.estimatedCost,
     actualCost: 0,
     warnings: [],
-    shots: plan.units.map((unit) => ({
-      id: unit.id,
-      cacheKey: unit.cacheKey,
-      status: "pending",
-      provider: plan.configuration.renderer.provider,
-      model: plan.configuration.renderer.model,
-      estimatedCost: unit.estimatedCost,
-      actualCost: 0,
-      attempts: 0,
-      warnings: [],
-    })),
+    shots: plan.units.map((unit, index) => {
+      const shot = plan.manifest.shots[index]!;
+      const providerInput = normalizedProviderInput(plan, shot);
+      return {
+        id: unit.id,
+        cacheKey: unit.cacheKey,
+        status: "pending",
+        provider: plan.configuration.renderer.provider,
+        model: plan.configuration.renderer.model,
+        estimatedCost: unit.estimatedCost,
+        actualCost: 0,
+        attempts: 0,
+        warnings: [],
+        providerInput,
+        providerInputHash: hash(JSON.stringify(providerInput)),
+      };
+    }),
   };
   await atomicJson(path.join(work, "msbo.json"), output);
   const ffmpeg = (await import("ffmpeg-static")).default as unknown as
@@ -588,6 +599,37 @@ export async function renderMovie(
   if (!options.workDir && !options.keepWorkDir)
     await rm(work, { recursive: true, force: true });
   return plan;
+}
+
+function normalizedProviderInput(
+  plan: RenderPlan,
+  shot: MsbManifest["shots"][number],
+): Record<string, unknown> {
+  const references = shot.references.map((name) => ({
+    role: "image",
+    path: name,
+    hash: hash(plan.entries.get(name) ?? ""),
+  }));
+  if (plan.configuration.renderer.provider === "fal")
+    return {
+      ...falInput(
+        plan.configuration.renderer.model,
+        plan.configuration.output,
+        shot,
+        "<uploaded-reference>",
+      ),
+      references,
+    };
+  return {
+    duration: shot.duration,
+    output: plan.configuration.output,
+    references,
+    action: shot.action,
+    camera: shot.camera,
+    dialogue: shot.dialogue,
+    narration: shot.narration,
+    continuity: shot.continuity,
+  };
 }
 
 async function applyFalPricing(plan: RenderPlan): Promise<void> {
