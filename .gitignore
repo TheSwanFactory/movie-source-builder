@@ -146,6 +146,7 @@ vite.config.ts.timestamp-*
 /build/
 *.msb
 !examples/smoke-test.msb
+!examples/smoke-test-reference.msb
 *.msbo
 *.mp4
 *.msbo.work/

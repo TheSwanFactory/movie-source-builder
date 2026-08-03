@@ -123,21 +123,28 @@ describe("schemas", () => {
     const environment = new Map<string, string | undefined>();
     try {
       for (const file of runnableConfigurations) {
-        const plan = await createPlan("examples/smoke-test.msb", file);
+        const { configuration } = await loadMsbc(file);
+        const isReferenceMode =
+          configuration.renderer.mode === "reference-to-video";
+        const bundle = isReferenceMode
+          ? "examples/smoke-test-reference.msb"
+          : "examples/smoke-test.msb";
+        const expectedDuration = isReferenceMode ? 8 : 6;
+        const plan = await createPlan(bundle, file);
         expect(plan.units).toHaveLength(1);
-        expect(plan.units[0]?.duration).toBe(6);
+        expect(plan.units[0]?.duration).toBe(expectedDuration);
         for (const name of plan.configuration.renderer
           .requiredEnvironmentVariables) {
           if (!environment.has(name)) environment.set(name, process.env[name]);
           process.env[name] = "ci-dry-run-placeholder";
         }
         await expect(
-          renderMovie("examples/smoke-test.msb", {
+          renderMovie(bundle, {
             configuration: file,
             output: "unused-dry-run.msbo",
             dryRun: true,
           }),
-        ).resolves.toMatchObject({ units: [{ duration: 6 }] });
+        ).resolves.toMatchObject({ units: [{ duration: expectedDuration }] });
       }
     } finally {
       for (const [name, value] of environment)

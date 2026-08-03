@@ -10,6 +10,7 @@ import {
 import {
   createPlan,
   falInput,
+  falReferenceInput,
   renderMovie,
   verifyRendererAuthentication,
 } from "../src/render.js";
@@ -97,6 +98,38 @@ describe("render planning", () => {
         "https://example.test/start.png",
       ),
     ).toMatchObject({ duration: 6, resolution: "1080p", fps: 25 });
+  });
+
+  it("maps shots to the Veo 3.1 reference-to-video fal input", async () => {
+    const plan = await createPlan(bundle, configuration);
+    const shot = { ...plan.manifest.shots[0]!, duration: 8 as const };
+    const imageUrls = [
+      "https://example.test/agent-86.png",
+      "https://example.test/agent-99.png",
+      "https://example.test/agent-13.png",
+    ];
+    expect(
+      falReferenceInput(
+        "fal-ai/veo3.1/fast/reference-to-video",
+        { aspectRatio: "16:9", width: 1280, height: 720, frameRate: 24 },
+        shot,
+        imageUrls,
+      ),
+    ).toMatchObject({
+      image_urls: imageUrls,
+      duration: "8s",
+      resolution: "720p",
+      aspect_ratio: "16:9",
+      generate_audio: true,
+    });
+    expect(() =>
+      falReferenceInput(
+        "fal-ai/future-provider/future-model",
+        { aspectRatio: "16:9", width: 1280, height: 720, frameRate: 24 },
+        shot,
+        imageUrls,
+      ),
+    ).toThrow("unsupported fal reference-to-video model");
   });
 
   it("reports missing renderer environment variables", async () => {

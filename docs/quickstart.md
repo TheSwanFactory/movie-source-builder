@@ -1,6 +1,6 @@
 # Quickstart
 
-Read [Authoring Movie Source Bundles](msb-authoring.md) before creating or paying to render a source bundle. In particular, entity reference sheets are not automatically sent to the provider: each fal-rendered shot needs exactly one explicit raster in `shot.references` showing the complete intended opening composition.
+Read [Authoring Movie Source Bundles](msb-authoring.md) before creating or paying to render a source bundle. In particular, entity reference sheets are not automatically sent to the provider: each shot must explicitly list the rasters a renderer mode requires under `shot.references` — one `composition` raster showing the complete intended opening composition for `image-to-video` engines, or one to three `identity` rasters for `reference-to-video` engines such as Veo 3.1 Fast.
 
 ```bash
 npm install

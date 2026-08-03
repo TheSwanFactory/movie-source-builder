@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { loadMsb } from "../dist/render.js";
+import { loadMsb, shotReferencePaths } from "../dist/render.js";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const args = process.argv.slice(2);
@@ -39,7 +39,7 @@ const seenReferences = new Map();
 const warnings = [];
 
 const shots = loaded.manifest.shots.map((shot, index) => {
-  const references = shot.references;
+  const references = shotReferencePaths(shot);
   if (references.length === 0)
     warnings.push(`${shot.id}: no explicit shot reference`);
   for (const reference of references) {

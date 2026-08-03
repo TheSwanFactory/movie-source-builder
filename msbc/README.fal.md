@@ -37,21 +37,21 @@ msb verify-auth --config msbc/fal-hailuo-02-standard.msbc
 
 Omit `--config` to verify the packaged default profile. A successful response confirms authentication. It does not confirm that a particular model is enabled, funded, or callable for the account. The command never prints the key.
 
-## Render
+## Render: image-to-video
 
-Each fal image-to-video shot must declare exactly one explicit PNG, JPEG, WebP, or AVIF path in its `references` array. Pack the source and render it with any fal profile:
+Each `image-to-video` fal shot must declare exactly one explicit PNG, JPEG, WebP, or AVIF path as `references.composition`. Pack the source and render it with any `image-to-video` fal profile:
 
-That explicit shot reference is the **only image uploaded for the request**. Character, location, and prop `reference` fields are not composited and are not separately sent to fal. For a multi-character shot, create one canonical image containing the complete cast and setting, then place its path in `shot.references`:
+That composition reference is the **only image uploaded for the request**. Character, location, and prop `reference` fields are not composited and are not separately sent to fal. For a multi-character shot, create one canonical image containing the complete cast and setting, then place its path in `shot.references.composition`:
 
 ```json
 {
   "characters": ["agent-86", "agent-99", "agent-13"],
   "location": "ai-control-center",
-  "references": ["references/control-center-ensemble.png"]
+  "references": { "composition": "references/control-center-ensemble.png" }
 }
 ```
 
-Do not use an isolated prop, location plate, or single-character sheet as the shot reference when the generated frame must contain an ensemble.
+Do not use an isolated prop, location plate, or single-character sheet as the composition reference when the generated frame must contain an ensemble.
 
 ```bash
 msb pack path/to/source --out movie.msb
@@ -64,14 +64,49 @@ msb render movie.msb \
 
 Use `--dry-run` first to inspect planned requests and estimated cost without uploading assets or calling fal.
 
-Configured validation and every render preflight verify that each fal shot has exactly one explicit reference, that its extension is supported, that its bytes match the declared raster format, that the model adapter is registered, and that the shot duration is supported. Failure occurs before authentication, pricing, upload, or generation.
+## Render: reference-to-video (Veo 3.1 Fast)
 
-Each shot is currently an independent image-to-video request. `continuity` is added to the prompt, but the renderer does not pass the last frame of one shot into the next. Reusing a canonical ensemble image and stating concrete identity invariants improves consistency but does not guarantee it. Read the complete [MSB authoring and continuity guide](../docs/msb-authoring.md) before a paid render.
+`fal-ai/veo3.1/fast/reference-to-video` generates a shot from **one to three** explicit raster identity references — typically one per recurring character — instead of a single composited opening frame. Declare them in `shot.references.identity`, and do not also declare `composition` or `endFrame`; this mode does not accept them:
+
+```json
+{
+  "characters": ["agent-86", "agent-99", "agent-13"],
+  "location": "ai-control-center",
+  "duration": 8,
+  "references": {
+    "identity": [
+      "characters/agent-86.png",
+      "characters/agent-99.png",
+      "characters/agent-13.png"
+    ]
+  }
+}
+```
+
+Veo 3.1 Fast reference-to-video only supports 8-second shots. Every identity image is uploaded and sent as `image_urls`; the endpoint generates native audio by default. See [`examples/skit-poc-reference/msb.json`](../examples/skit-poc-reference/msb.json) for a complete three-character example.
+
+```bash
+msb pack path/to/source --out movie.msb
+msb validate movie.msb --config msbc/fal-veo-3.1-fast-reference.msbc
+msb render movie.msb \
+  --config msbc/fal-veo-3.1-fast-reference.msbc \
+  --out movie.msbo \
+  --max-cost 1.00
+```
+
+Uploading three faces to one request improves per-shot identity consistency over independently generated image-to-video shots, but it is still **not cross-shot continuity**: each shot remains an independent generation request. Reference-to-video does not extract or reuse the previous shot's final frame; read the honest continuity discussion in the [MSB authoring guide](../docs/msb-authoring.md) before a paid render.
+
+## Preflight and failure ordering
+
+Configured validation and every render preflight check the selected renderer's registered capabilities before doing anything paid: that the msbc-declared `renderer.mode` matches the model's registered mode, that every reference role provided by a shot is accepted by that mode with an in-range count, that every reference file extension is supported and its bytes match the declared raster format, that the model adapter is registered, and that the shot duration is supported. Any mismatch fails at plan creation — before authentication, pricing, upload, or generation.
+
+Each shot is currently an independent request regardless of mode. `continuity` is added to the prompt, but no adapter currently passes the last frame or video context of one shot into the next. Reusing consistent identity references or a canonical ensemble image, and stating concrete identity invariants in `continuity`, improves consistency but does not guarantee it. Read the complete [MSB authoring and continuity guide](../docs/msb-authoring.md) before a paid render.
 
 ## Engine profiles
 
 - [`fal-hailuo-02-standard.msbc`](fal-hailuo-02-standard.msbc)
 - [`fal-veo-3.1-fast.msbc`](fal-veo-3.1-fast.msbc)
 - [`fal-ltx-2.3-fast.msbc`](fal-ltx-2.3-fast.msbc)
+- [`fal-veo-3.1-fast-reference.msbc`](fal-veo-3.1-fast-reference.msbc)
 
 Each profile links to its current official model documentation in the [engine configuration index](README.md).

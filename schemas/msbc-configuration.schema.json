@@ -27,6 +27,12 @@
       "properties": {
         "provider": { "type": "string", "minLength": 1 },
         "model": { "type": "string", "minLength": 1 },
+        "mode": {
+          "default": "image-to-video",
+          "type": "string",
+          "enum": ["image-to-video", "reference-to-video"],
+          "description": "The renderer capability this configuration selects, independent of creative content. Plan creation rejects a model whose registered capabilities do not match this mode."
+        },
         "requiredEnvironmentVariables": {
           "default": [],
           "type": "array",

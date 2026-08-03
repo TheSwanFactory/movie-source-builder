@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.5.0] - 2026-08-03
+
+### Added
+
+- Added renderer-neutral, role-based shot references: `shots[].references` is now an object with `identity` (0-3 rasters), `composition` (one optional starting-frame raster), and `endFrame` (one optional ending-frame raster) roles, replacing the single untyped array.
+- Added an explicit `renderer.mode` (`image-to-video` or `reference-to-video`) to `.msbc`, so the configuration selects a renderer capability independently of creative content.
+- Added a shared renderer capability registry (`falModelCapabilities` in `src/render.ts`) that declares each fal model's mode, accepted reference roles and counts, supported durations, media types, and audio support; every future renderer or model must register capabilities there or plan creation rejects it.
+- Added the `fal-ai/veo3.1/fast/reference-to-video` adapter and `msbc/fal-veo-3.1-fast-reference.msbc` profile: uploads one to three explicit raster identity references as `image_urls`, generates native audio, and only supports 8-second shots.
+- Added `8` as a supported shot duration alongside `6` and `10`.
+- Added `examples/smoke-test-reference.msb` and `examples/skit-poc-reference.msb`, reference-to-video counterparts of the existing image-to-video smoke test and Agent Autonomy skit fixtures.
+
+### Changed
+
+- Renderer input validation now enforces role-based reference counts and a `renderer.mode`/model capability match during plan creation, before credentials, pricing, upload, or generation — the prior "exactly one reference" rule is now `image-to-video`-specific.
+- Updated `msb-authoring.md`, `data-model.md`, `specification.md`, `quickstart.md`, and the fal renderer guides for the new reference roles, `renderer.mode`, and Veo 3.1 Fast reference-to-video usage, while continuing to state honestly that no adapter passes frames or video context between independently generated shots.
+
+### Validation
+
+- Added contract tests covering valid inputs and every rejected reference-role shape (missing/extra/out-of-range roles, unsupported durations, `renderer.mode` mismatches, and unregistered fal models) for both renderer modes.
+- Ran a manual, cost-capped Veo 3.1 Fast reference-to-video render of the Agent Autonomy skit. Identity (color/badge) held across all three independently-generated shots. The held-still collapse shot initially failed — characters rose and spoke, with an extra hallucinated puppet — because reference-to-video has no starting-frame anchor for a static pose; rewriting that shot's `action`/`continuity` to lead with the no-movement constraint fixed it on retry. Documented this honestly in `msb-authoring.md`.
+
 ## [0.4.0] - 2026-08-01
 
 ### Added
