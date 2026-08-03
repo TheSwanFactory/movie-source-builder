@@ -130,8 +130,8 @@
           "end": 7.6
         }
       ],
-      "action": "Hold a long, motionless comedic beat on the three collapsed, empty sock puppets. Agent 99 and Agent 86 speak muffled from inside the fabric pile without rising or moving. Agent 13 stays completely limp.",
-      "camera": "Locked-off wide shot; no camera movement for the entire long beat.",
+      "action": "STATIC HOLD SHOT: all three sock puppets lie completely collapsed, limp, and motionless in a heap for the entire shot. None of the three puppets rise, lift, sit up, tilt upright, or are worn on a hand at any point — zero puppet movement of any kind. Exactly three puppets are visible for the whole shot: one red, one blue, one green; no additional or duplicate puppet appears. Two muffled voices are heard as if from inside the still, motionless fabric pile, but no mouth opens and no fabric moves to match the words — treat the dialogue as an unseen voiceover over an unchanging frame.",
+      "camera": "Locked-off static wide shot on a fixed tripod; zero camera movement and zero subject movement for the entire 8-second duration.",
       "references": {
         "identity": [
           "characters/agent-86.png",
@@ -140,9 +140,11 @@
         ]
       },
       "continuity": [
-        "All three knit sock puppets begin and end in the exact collapsed positions from the prior shot",
-        "No puppeteer hands return",
-        "Dialogue sounds muffled while mouths remain hidden",
+        "CRITICAL: no puppet rises, stands up, lifts, or is worn upright on a hand at any point in this shot — all three remain flat, collapsed, and completely motionless the entire time",
+        "Exactly three sock puppets are visible for the whole shot: one red with badge 86, one blue with badge 99, one green with badge 13 — never a fourth or duplicate puppet",
+        "All three knit sock puppets begin and end in the exact collapsed positions from the prior shot, unchanged for the full duration",
+        "No puppeteer hands return or become visible",
+        "The two muffled voices do not correspond to any visible mouth or body movement; the frame looks the same at the end as at the start",
         "Set the scene at the handmade cardboard AI control center with blinking paper consoles and a dark theatrical backdrop"
       ]
     }

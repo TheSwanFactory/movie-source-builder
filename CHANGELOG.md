@@ -21,6 +21,7 @@ All notable changes to this project are documented in this file.
 ### Validation
 
 - Added contract tests covering valid inputs and every rejected reference-role shape (missing/extra/out-of-range roles, unsupported durations, `renderer.mode` mismatches, and unregistered fal models) for both renderer modes.
+- Ran a manual, cost-capped Veo 3.1 Fast reference-to-video render of the Agent Autonomy skit. Identity (color/badge) held across all three independently-generated shots. The held-still collapse shot initially failed — characters rose and spoke, with an extra hallucinated puppet — because reference-to-video has no starting-frame anchor for a static pose; rewriting that shot's `action`/`continuity` to lead with the no-movement constraint fixed it on retry. Documented this honestly in `msb-authoring.md`.
 
 ## [0.4.0] - 2026-08-01
 

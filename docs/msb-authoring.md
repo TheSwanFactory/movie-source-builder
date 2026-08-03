@@ -160,6 +160,8 @@ For the strongest continuity available with the current fal adapters:
 
 Uploading consistent identity references (either approach) improves consistency but does not guarantee it, and it is **not the same as cross-shot continuity**. True shot chaining requires renderer support that extracts the final frame (or video context) of one shot and supplies it to the next request; no adapter in this release does that. Evaluate first/last-frame and video-extension endpoints separately before claiming continuity guarantees.
 
+**Reference-to-video and held static poses.** Because reference-to-video has no starting-frame image to anchor a pose — only identity sheets, which typically show a character actively worn upright — it is markedly worse than image-to-video at holding a shot where characters must stay in a specific state (e.g. collapsed and motionless) rather than move. In one paid test, a "hold still, do not rise" shot instead showed the characters standing back up and talking, with an extra hallucinated character. Rewriting the shot so the no-movement constraint was the first sentence of `action` (not buried after scene-setting prose), repeated as a `CRITICAL:`-prefixed `continuity` entry, and paired with an explicit statement that dialogue should read as an unseen voiceover over an unchanging frame, fixed it on retry. If a shot's entire content is "nothing moves," state that constraint first and most emphatically, and budget for at least one retry.
+
 ## Preflight checklist
 
 Before spending money on a render, verify all of the following:
