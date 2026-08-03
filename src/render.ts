@@ -23,7 +23,7 @@ export const hash = (value: Buffer | string) =>
 
 export interface RenderPlanUnit {
   id: string;
-  duration: 6 | 10;
+  duration: 6 | 8 | 10;
   cacheKey: string;
   estimatedCost: number;
   reused: boolean;
@@ -145,6 +145,16 @@ async function resolveMsbc(
   };
 }
 
+export function shotReferencePaths(
+  shot: MsbManifest["shots"][number],
+): string[] {
+  return [
+    ...(shot.references.composition ? [shot.references.composition] : []),
+    ...shot.references.identity,
+    ...(shot.references.endFrame ? [shot.references.endFrame] : []),
+  ];
+}
+
 export function referencedAssets(manifest: MsbManifest): string[] {
   return [
     ...new Set([
@@ -156,7 +166,7 @@ export function referencedAssets(manifest: MsbManifest): string[] {
       ...manifest.props.flatMap((item) =>
         item.reference ? [item.reference] : [],
       ),
-      ...manifest.shots.flatMap((item) => item.references),
+      ...manifest.shots.flatMap((item) => shotReferencePaths(item)),
     ]),
   ];
 }
@@ -220,6 +230,112 @@ export async function loadMsb(file: string): Promise<{
   return { entries, manifest, sourceHash: hash(bytes) };
 }
 
+export type ReferenceRole = "identity" | "composition" | "endFrame";
+
+export interface ReferenceRoleLimits {
+  min: number;
+  max: number;
+}
+
+export interface RendererCapabilities {
+  mode: "image-to-video" | "reference-to-video";
+  roles: Partial<Record<ReferenceRole, ReferenceRoleLimits>>;
+  mediaTypes: readonly string[];
+  durations: readonly number[];
+  audio: boolean;
+}
+
+const RASTER_MEDIA_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/avif",
+] as const;
+
+const falModelCapabilities: Record<string, RendererCapabilities> = {
+  "fal-ai/minimax/hailuo-02/standard/image-to-video": {
+    mode: "image-to-video",
+    roles: { composition: { min: 1, max: 1 } },
+    mediaTypes: RASTER_MEDIA_TYPES,
+    durations: [6, 10],
+    audio: false,
+  },
+  "fal-ai/veo3.1/fast/image-to-video": {
+    mode: "image-to-video",
+    roles: { composition: { min: 1, max: 1 } },
+    mediaTypes: RASTER_MEDIA_TYPES,
+    durations: [6, 8],
+    audio: true,
+  },
+  "fal-ai/ltx-2.3/image-to-video/fast": {
+    mode: "image-to-video",
+    roles: { composition: { min: 1, max: 1 } },
+    mediaTypes: RASTER_MEDIA_TYPES,
+    durations: [6, 8, 10],
+    audio: true,
+  },
+  "fal-ai/veo3.1/fast/reference-to-video": {
+    mode: "reference-to-video",
+    roles: { identity: { min: 1, max: 3 } },
+    mediaTypes: RASTER_MEDIA_TYPES,
+    durations: [8],
+    audio: true,
+  },
+};
+
+function requireFalCapabilities(model: string): RendererCapabilities {
+  const capabilities = falModelCapabilities[model];
+  if (!capabilities)
+    throw new Error(`unsupported fal renderer model: ${model}`);
+  return capabilities;
+}
+
+function referenceRolePaths(
+  shot: MsbManifest["shots"][number],
+  role: ReferenceRole,
+): string[] {
+  if (role === "identity") return shot.references.identity;
+  const value = shot.references[role];
+  return value ? [value] : [];
+}
+
+const REFERENCE_ROLES: readonly ReferenceRole[] = [
+  "identity",
+  "composition",
+  "endFrame",
+];
+
+function validateFalShot(
+  capabilities: RendererCapabilities,
+  shot: MsbManifest["shots"][number],
+  entries: Map<string, Buffer>,
+): void {
+  if (!capabilities.durations.includes(shot.duration))
+    throw new Error(
+      `fal shot ${shot.id} duration ${shot.duration}s is unsupported for this renderer mode`,
+    );
+  for (const role of REFERENCE_ROLES) {
+    const provided = referenceRolePaths(shot, role);
+    const limits = capabilities.roles[role];
+    if (!limits) {
+      if (provided.length > 0)
+        throw new Error(
+          `fal shot ${shot.id} does not accept a ${role} reference for this renderer mode`,
+        );
+      continue;
+    }
+    if (provided.length < limits.min || provided.length > limits.max)
+      throw new Error(
+        `fal shot ${shot.id} requires between ${limits.min} and ${limits.max} ${role} reference(s), received ${provided.length}`,
+      );
+    for (const reference of provided) {
+      const bytes = entries.get(reference);
+      if (!bytes) throw new Error(`referenced asset is missing: ${reference}`);
+      validateRasterReference(reference, bytes, capabilities.mediaTypes);
+    }
+  }
+}
+
 type RendererInputContract = {
   validate(
     manifest: MsbManifest,
@@ -232,21 +348,13 @@ const rendererInputContracts: Record<string, RendererInputContract> = {
   mock: { validate: () => undefined },
   fal: {
     validate: (manifest, entries, configuration) => {
-      const model = configuration.renderer.model;
-      if (!isSupportedFalModel(model))
-        throw new Error(`unsupported fal renderer model: ${model}`);
-      for (const shot of manifest.shots) {
-        if (shot.references.length !== 1)
-          throw new Error(
-            `fal shot ${shot.id} requires exactly one explicit raster reference in shot.references`,
-          );
-        const reference = shot.references[0]!;
-        const bytes = entries.get(reference);
-        if (!bytes)
-          throw new Error(`referenced asset is missing: ${reference}`);
-        validateRasterReference(reference, bytes);
-        validateFalShotModelInput(model, shot);
-      }
+      const capabilities = requireFalCapabilities(configuration.renderer.model);
+      if (capabilities.mode !== configuration.renderer.mode)
+        throw new Error(
+          `renderer mode mismatch: msbc declares "${configuration.renderer.mode}" but model ${configuration.renderer.model} supports "${capabilities.mode}"`,
+        );
+      for (const shot of manifest.shots)
+        validateFalShot(capabilities, shot, entries);
     },
   },
 };
@@ -262,24 +370,16 @@ export function validateRendererInputs(
   contract.validate(manifest, entries, configuration);
 }
 
-function isSupportedFalModel(model: string): boolean {
-  return (
-    model.includes("minimax/hailuo-02") ||
-    model.includes("veo3.1") ||
-    model.includes("ltx-2.3")
-  );
-}
-
-function validateFalShotModelInput(
-  model: string,
-  shot: MsbManifest["shots"][number],
+function validateRasterReference(
+  name: string,
+  bytes: Buffer,
+  mediaTypes: readonly string[],
 ): void {
-  if (model.includes("veo3.1") && shot.duration === 10)
-    throw new Error(`Veo 3.1 does not support 10-second shot ${shot.id}`);
-}
-
-function validateRasterReference(name: string, bytes: Buffer): void {
   const declared = imageMimeType(name);
+  if (!mediaTypes.includes(declared))
+    throw new Error(
+      `fal reference type is unsupported for this renderer mode: ${name} (${declared})`,
+    );
   const detected = detectRasterMimeType(bytes);
   if (!detected)
     throw new Error(
@@ -659,6 +759,17 @@ async function renderMockShot(
   return `mock-${randomUUID()}`;
 }
 
+async function uploadFalReference(
+  fal: Awaited<typeof import("@fal-ai/client")>["fal"],
+  entries: Map<string, Buffer>,
+  reference: string,
+): Promise<string> {
+  const bytes = entries.get(reference);
+  if (!bytes) throw new Error(`referenced asset is missing: ${reference}`);
+  const mime = imageMimeType(reference);
+  return fal.storage.upload(new Blob([new Uint8Array(bytes)], { type: mime }));
+}
+
 async function renderFalShot(
   plan: RenderPlan,
   index: number,
@@ -666,23 +777,32 @@ async function renderFalShot(
   ffmpeg: string,
 ): Promise<string> {
   const shot = plan.manifest.shots[index]!;
-  const reference = shot.references[0]!;
-  const bytes = plan.entries.get(reference);
-  if (!bytes) throw new Error(`referenced asset is missing: ${reference}`);
-  const mime = imageMimeType(reference);
-  const input = falInput(
-    plan.configuration.renderer.model,
-    plan.configuration.output,
-    shot,
-    "pending-upload",
-  );
+  const model = plan.configuration.renderer.model;
   const { fal } = await import("@fal-ai/client");
   fal.config({ credentials: requireFalKey() });
-  const imageUrl = await fal.storage.upload(
-    new Blob([new Uint8Array(bytes)], { type: mime }),
-  );
-  input.image_url = imageUrl;
-  const response = await fal.subscribe(plan.configuration.renderer.model, {
+  const input =
+    plan.configuration.renderer.mode === "reference-to-video"
+      ? falReferenceInput(
+          model,
+          plan.configuration.output,
+          shot,
+          await Promise.all(
+            shot.references.identity.map((reference) =>
+              uploadFalReference(fal, plan.entries, reference),
+            ),
+          ),
+        )
+      : falInput(
+          model,
+          plan.configuration.output,
+          shot,
+          await uploadFalReference(
+            fal,
+            plan.entries,
+            shot.references.composition!,
+          ),
+        );
+  const response = await fal.subscribe(model, {
     input,
     logs: false,
   });
@@ -737,13 +857,8 @@ function imageMimeType(name: string): string {
   return type;
 }
 
-export function falInput(
-  model: string,
-  output: MsbcConfiguration["output"],
-  shot: MsbManifest["shots"][number],
-  imageUrl: string,
-): Record<string, unknown> {
-  const prompt = [
+function falPrompt(shot: MsbManifest["shots"][number]): string {
+  return [
     shot.action,
     `Camera: ${shot.camera}`,
     shot.narration ? `Narration: ${shot.narration}` : undefined,
@@ -756,7 +871,15 @@ export function falInput(
   ]
     .filter(Boolean)
     .join("\n");
-  const common = { prompt, image_url: imageUrl };
+}
+
+export function falInput(
+  model: string,
+  output: MsbcConfiguration["output"],
+  shot: MsbManifest["shots"][number],
+  imageUrl: string,
+): Record<string, unknown> {
+  const common = { prompt: falPrompt(shot), image_url: imageUrl };
   if (model.includes("minimax/hailuo-02"))
     return {
       ...common,
@@ -787,4 +910,22 @@ export function falInput(
       generate_audio: true,
     };
   return common;
+}
+
+export function falReferenceInput(
+  model: string,
+  output: MsbcConfiguration["output"],
+  shot: MsbManifest["shots"][number],
+  imageUrls: string[],
+): Record<string, unknown> {
+  if (model.includes("veo3.1"))
+    return {
+      prompt: falPrompt(shot),
+      image_urls: imageUrls,
+      duration: `${shot.duration}s`,
+      resolution: output.height >= 1080 ? "1080p" : "720p",
+      aspect_ratio: output.aspectRatio,
+      generate_audio: true,
+    };
+  throw new Error(`unsupported fal reference-to-video model: ${model}`);
 }

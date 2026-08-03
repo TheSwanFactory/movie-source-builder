@@ -2,12 +2,13 @@
 
 Reusable Movie Source Builder Configuration (`.msbc`) profiles:
 
-| Configuration                                                | Renderer                                                                                                 | Environment | Status    |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ----------- | --------- |
-| [`mock.msbc`](mock.msbc)                                     | Local FFmpeg mock                                                                                        | None        | Supported |
-| [`fal-hailuo-02-standard.msbc`](fal-hailuo-02-standard.msbc) | [MiniMax Hailuo 02 Standard](https://fal.ai/models/fal-ai/minimax/hailuo-02/standard/image-to-video/api) | `FAL_KEY`   | Supported |
-| [`fal-veo-3.1-fast.msbc`](fal-veo-3.1-fast.msbc)             | [Veo 3.1 Fast](https://fal.ai/models/fal-ai/veo3.1/fast/image-to-video/api)                              | `FAL_KEY`   | Supported |
-| [`fal-ltx-2.3-fast.msbc`](fal-ltx-2.3-fast.msbc)             | [LTX 2.3 Fast](https://fal.ai/models/fal-ai/ltx-2.3/image-to-video/fast/api)                             | `FAL_KEY`   | Supported |
+| Configuration                                                        | Renderer                                                                                                 | Mode                 | Environment | Status    |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------- | ----------- | --------- |
+| [`mock.msbc`](mock.msbc)                                             | Local FFmpeg mock                                                                                        | `image-to-video`     | None        | Supported |
+| [`fal-hailuo-02-standard.msbc`](fal-hailuo-02-standard.msbc)         | [MiniMax Hailuo 02 Standard](https://fal.ai/models/fal-ai/minimax/hailuo-02/standard/image-to-video/api) | `image-to-video`     | `FAL_KEY`   | Supported |
+| [`fal-veo-3.1-fast.msbc`](fal-veo-3.1-fast.msbc)                     | [Veo 3.1 Fast](https://fal.ai/models/fal-ai/veo3.1/fast/image-to-video/api)                              | `image-to-video`     | `FAL_KEY`   | Supported |
+| [`fal-ltx-2.3-fast.msbc`](fal-ltx-2.3-fast.msbc)                     | [LTX 2.3 Fast](https://fal.ai/models/fal-ai/ltx-2.3/image-to-video/fast/api)                             | `image-to-video`     | `FAL_KEY`   | Supported |
+| [`fal-veo-3.1-fast-reference.msbc`](fal-veo-3.1-fast-reference.msbc) | [Veo 3.1 Fast Reference-to-Video](https://fal.ai/models/fal-ai/veo3.1/fast/reference-to-video/api)       | `reference-to-video` | `FAL_KEY`   | Supported |
 
 [`default.msbc`](default.msbc) inherits the cheapest configured paid engine, currently Hailuo 02 Standard. The CLI uses this packaged configuration when `--config` is omitted.
 
@@ -38,15 +39,18 @@ Create a descriptively named `.msbc` file in this directory:
 - `output` defines the normalized MP4 dimensions, aspect ratio, and frame rate. Choose values supported by the engine.
 - `renderer.provider` selects the adapter. This release supports `mock` and `fal`.
 - `renderer.model` is the provider's exact endpoint identifier.
+- `renderer.mode` declares the renderer capability this configuration selects: `image-to-video` (default, one `references.composition` raster per shot) or `reference-to-video` (one to three `references.identity` rasters per shot). Plan creation rejects a model whose registered capabilities do not match the declared mode.
 - `requiredEnvironmentVariables` contains names only. Use uppercase POSIX environment names, list each once, and never store values.
 
 The schema is [`schemas/msbc-configuration.schema.json`](../schemas/msbc-configuration.schema.json). Base files may define only reusable output or renderer fields; the fully resolved configuration must contain both. The top-level object is strict, so content-specific or misspelled fields are rejected.
 
-For a new fal endpoint, confirm that its official API accepts `prompt` and `image_url`. If its duration, resolution, aspect-ratio, frame-rate, or audio fields differ from the existing engines, add its mapping to `falInput` in [`src/render.ts`](../src/render.ts) and cover the mapping in [`test/render.test.ts`](../test/render.test.ts).
+For a new fal endpoint, confirm its official API contract, then register its capabilities (mode, accepted reference roles and counts, supported durations, media types, and audio support) in `falModelCapabilities` in [`src/render.ts`](../src/render.ts). Add its input mapping to `falInput` (image-to-video) or `falReferenceInput` (reference-to-video), and cover both the capability contract and the mapping in [`test/renderer-contract.test.ts`](../test/renderer-contract.test.ts) and [`test/render.test.ts`](../test/render.test.ts). An unregistered model is always rejected during plan creation, before any credentials, pricing, upload, or generation request.
 
 ## Smoke-test a configuration
 
-[`examples/smoke-test.msb`](../examples/smoke-test.msb) is a ready-to-render bundle with one six-second shot and one 16:9 PNG reference. Its unpacked source is under [`examples/smoke-test/`](../examples/smoke-test/).
+[`examples/smoke-test.msb`](../examples/smoke-test.msb) is a ready-to-render bundle with one six-second shot and one 16:9 PNG `composition` reference, for `image-to-video` configurations. Its unpacked source is under [`examples/smoke-test/`](../examples/smoke-test/).
+
+[`examples/smoke-test-reference.msb`](../examples/smoke-test-reference.msb) is the equivalent bundle for `reference-to-video` configurations: one eight-second shot with a single `identity` reference. Its unpacked source is under [`examples/smoke-test-reference/`](../examples/smoke-test-reference/). Substitute it for `reference-to-video` engines in the commands below.
 
 First validate the configuration and bundle without provider calls:
 

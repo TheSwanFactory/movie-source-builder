@@ -5,7 +5,12 @@ import path from "node:path";
 import { execa } from "execa";
 import ffmpeg from "ffmpeg-static";
 import { readArchive, writeArchive } from "./archive.js";
-import { hash, loadMsb, referencedAssets } from "./render.js";
+import {
+  hash,
+  loadMsb,
+  referencedAssets,
+  shotReferencePaths,
+} from "./render.js";
 import { msboOutputSchema, type MsboOutput } from "./schema.js";
 
 const packageJson = JSON.parse(
@@ -65,7 +70,7 @@ function panelSvg(
         `DIALOGUE ${d.start}-${d.end}s ${d.character ?? "ensemble"}: ${d.text}`,
     ),
     ...(shot.narration ? [`NARRATION: ${shot.narration}`] : []),
-    `REFERENCES: ${shot.references.join(", ") || "none"}`,
+    `REFERENCES: ${shotReferencePaths(shot).join(", ") || "none"}`,
     timingAudioMode === "system-voice"
       ? "AUDIO: TEMPORARY LOCAL TIMING VOICES — NOT PRODUCTION AUDIO"
       : "AUDIO: TEMPORARY LOCAL TIMING SILENCE — NOT PRODUCTION AUDIO",
@@ -126,7 +131,7 @@ export async function createStoryboard(
     const timingAudioMode = options.timingVoices ? "system-voice" : "silence";
     for (const [index, shot] of loaded.manifest.shots.entries()) {
       const referenceName =
-        shot.references[0] ??
+        shotReferencePaths(shot)[0] ??
         loaded.manifest.locations.find((item) => item.id === shot.location)
           ?.reference ??
         loaded.manifest.characters.find((item) =>

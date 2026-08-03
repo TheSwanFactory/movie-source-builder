@@ -22,6 +22,29 @@ export const dialogueSchema = z
   })
   .refine((value) => value.end > value.start, "dialogue end must follow start");
 
+export const shotReferencesSchema = z
+  .object({
+    identity: z
+      .array(relativePath)
+      .describe(
+        "Explicit raster identity references (e.g. one per recurring character) for reference-to-video renderers. Not automatically populated from characters[]/props[] — a path must be listed here to be uploaded.",
+      )
+      .default([]),
+    composition: relativePath
+      .describe(
+        "Explicit starting-frame / opening-composition raster for single-image renderers. The current image-to-video fal adapters upload only this image as their input.",
+      )
+      .optional(),
+    endFrame: relativePath
+      .describe(
+        "Explicit ending-frame raster for renderers that support first/last-frame generation.",
+      )
+      .optional(),
+  })
+  .strict();
+
+export type ShotReferences = z.infer<typeof shotReferencesSchema>;
+
 export const msbManifestSchema = z.object({
   formatVersion: z.string().regex(/^1\.\d+\.\d+$/),
   project: z.object({
@@ -70,19 +93,14 @@ export const msbManifestSchema = z.object({
     .array(
       z.object({
         id,
-        duration: z.union([z.literal(6), z.literal(10)]),
+        duration: z.union([z.literal(6), z.literal(8), z.literal(10)]),
         characters: z.array(id).default([]),
         location: id.optional(),
         dialogue: z.array(dialogueSchema).default([]),
         narration: z.string().optional(),
         action: z.string().min(1),
         camera: z.string().min(1),
-        references: z
-          .array(relativePath)
-          .describe(
-            "Explicit provider inputs for this shot. The current fal adapter requires exactly one raster and uploads only that image; entity references are not composited.",
-          )
-          .default([]),
+        references: shotReferencesSchema.default({ identity: [] }),
         continuity: z
           .array(z.string())
           .describe(
@@ -106,6 +124,12 @@ const msbcOutputSchema = z.object({
 const msbcRendererSchema = z.object({
   provider: z.string().min(1),
   model: z.string().min(1),
+  mode: z
+    .enum(["image-to-video", "reference-to-video"])
+    .describe(
+      "The renderer capability this configuration selects, independent of creative content. Plan creation rejects a model whose registered capabilities do not match this mode.",
+    )
+    .default("image-to-video"),
   requiredEnvironmentVariables: z
     .array(z.string().regex(/^[A-Z_][A-Z0-9_]*$/))
     .refine(

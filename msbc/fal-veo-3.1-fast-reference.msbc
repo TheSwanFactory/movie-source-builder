@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "extends": "formats/landscape-720p-24fps.msbc",
+  "renderer": {
+    "provider": "fal",
+    "model": "fal-ai/veo3.1/fast/reference-to-video",
+    "mode": "reference-to-video",
+    "requiredEnvironmentVariables": ["FAL_KEY"]
+  }
+}

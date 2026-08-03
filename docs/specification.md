@@ -36,7 +36,7 @@ Acceptance: all recorded data is machine-readable and excludes credentials.
 ## Edge Cases
 
 - Archives containing absolute paths, traversal, links, duplicate normalized names, or excessive expansion.
-- Provider-sized duration splitting, unsupported durations, missing credentials, multiple references where only one is accepted, cancellation, retries, and partially completed state.
+- Provider-sized duration splitting, unsupported durations, missing credentials, a reference role unsupported by or out of count range for the configured renderer mode, a configured mode that does not match the model's registered capability, cancellation, retries, and partially completed state.
 - Missing or tampered generated assets and export from incomplete output.
 
 ## Functional Requirements
