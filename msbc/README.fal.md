@@ -94,13 +94,13 @@ msb render movie.msb \
   --max-cost 1.00
 ```
 
-Uploading three faces to one request improves per-shot identity consistency over independently generated image-to-video shots, but it is still **not cross-shot continuity**: each shot remains an independent generation request. Reference-to-video does not extract or reuse the previous shot's final frame; read the honest continuity discussion in the [MSB authoring guide](../docs/msb-authoring.md) before a paid render.
+Uploading three faces to one request improves per-shot identity consistency over independently generated image-to-video shots, but it is still **not cross-shot continuity**: each shot remains an independent generation request. Reference-to-video does not extract or reuse the previous shot's final frame; read the honest continuity discussion in the [quick start guide](../docs/01-quick-start.md#designing-for-continuity-todays-real-limits) before a paid render.
 
 ## Preflight and failure ordering
 
 Configured validation and every render preflight check the selected renderer's registered capabilities before doing anything paid: that the msbc-declared `renderer.mode` matches the model's registered mode, that every reference role provided by a shot is accepted by that mode with an in-range count, that every reference file extension is supported and its bytes match the declared raster format, that the model adapter is registered, and that the shot duration is supported. Any mismatch fails at plan creation — before authentication, pricing, upload, or generation.
 
-Each shot is currently an independent request regardless of mode. `continuity` is added to the prompt, but no adapter currently passes the last frame or video context of one shot into the next. Reusing consistent identity references or a canonical ensemble image, and stating concrete identity invariants in `continuity`, improves consistency but does not guarantee it. Read the complete [MSB authoring and continuity guide](../docs/msb-authoring.md) before a paid render.
+Each shot is currently an independent request regardless of mode. `continuity` is added to the prompt, but no adapter currently passes the last frame or video context of one shot into the next. Reusing consistent identity references or a canonical ensemble image, and stating concrete identity invariants in `continuity`, improves consistency but does not guarantee it. Read the complete [quick start and continuity guide](../docs/01-quick-start.md#designing-for-continuity-todays-real-limits) before a paid render.
 
 ## Engine profiles
 
