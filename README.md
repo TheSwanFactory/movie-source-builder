@@ -82,6 +82,8 @@ Each shot and dialogue event receives a hashed prompt derived from the complete 
 
 `msb inspect storyboard.msbo` reports its duration, warnings, and approval state. After reviewing the embedded MP4 and contact sheet, bind approval to the exact source and generated artifacts with `msb approve storyboard.msbo --source movie.msb`. Approval fails clearly if any byte of the source bundle—including screenplay, dialogue, ordering, timing, references, action, camera, or continuity—has changed.
 
+`.msbo` files are plain zip archives, so any embedded artifact can be unzipped directly. `msb inspect <file>.msbo --extract review.mp4` is the one-step equivalent: it copies the storyboard or previz review MP4 named in the inspect summary to `review.mp4`, verifying its hash first. It only applies to `storyboard` and `previz` kinds; a `render` output has no single embedded review movie and should use `msb export` instead.
+
 ## Low-cost previz review
 
 Run `msb previz movie.msb --config previz.msbc --storyboard storyboard.msbo --out previz.msbo --max-cost 2.00` to test the selected renderer before production. The configuration is always explicit: the production default is never silently used. An optional storyboard must already be approved and must match the complete source hash.

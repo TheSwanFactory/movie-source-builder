@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import path from "node:path";
@@ -9,6 +9,7 @@ import { readArchive, writeArchiveFromDirectory } from "./archive.js";
 import { exportMovie } from "./export.js";
 import { defaultBuildPaths } from "./paths.js";
 import {
+  hash,
   loadMsb,
   loadMsbc,
   renderMovie,
@@ -79,12 +80,41 @@ program
   .description("Inspect an .msb, .msbc, or .msbo")
   .argument("<file>")
   .option("--json")
+  .option(
+    "--extract <file>",
+    "extract the embedded storyboard or previz review MP4 to this path",
+  )
   .action(async (file, options) => {
     if (file.endsWith(".msbo")) {
       const entries = await readArchive(file);
       const raw = entries.get("msbo.json");
       if (!raw) throw new Error("msbo.json is required");
       const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
+      if (options.extract) {
+        const moviePath =
+          output.kind === "storyboard"
+            ? output.storyboard?.movie
+            : output.kind === "previz"
+              ? output.previz?.movie
+              : undefined;
+        const movieHash =
+          output.kind === "storyboard"
+            ? output.storyboard?.movieHash
+            : output.previz?.movieHash;
+        if (!moviePath)
+          throw new Error(
+            `${output.kind ?? "render"} .msbo has no embedded review movie; use \`msb export\` for render output`,
+          );
+        const bytes = entries.get(moviePath);
+        if (!bytes || (movieHash && hash(bytes) !== movieHash))
+          throw new Error(`embedded review movie hash mismatch: ${moviePath}`);
+        await mkdir(path.dirname(path.resolve(options.extract)), {
+          recursive: true,
+        });
+        await writeFile(options.extract, bytes);
+        console.log(`Wrote ${options.extract}`);
+        return;
+      }
       console.log(
         options.json
           ? JSON.stringify(output, null, 2)

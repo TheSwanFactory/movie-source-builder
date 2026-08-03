@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 - Added `msb previz` with explicit low-cost configuration, optional approved-storyboard validation, provider-free dry runs, cost limits, resumable shot reuse, normalized provider-input provenance, non-production review MP4s, and source/artifact-bound approval.
 - Added `msbc/previz-mock.msbc` and automated provider-free previz contract coverage.
+- Added `msb inspect <file>.msbo --extract <file>` to copy an embedded storyboard or previz review MP4 to disk with a hash check, instead of requiring manual unzipping.
 
 ## [0.4.0] - 2026-08-01
 

@@ -1,7 +1,8 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { execa } from "execa";
 import { readArchive } from "../src/archive.js";
 import {
   approvePreviz,
@@ -10,6 +11,7 @@ import {
 } from "../src/previz.js";
 import { msboOutputSchema } from "../src/schema.js";
 import { approveStoryboard, createStoryboard } from "../src/storyboard.js";
+import { renderMovie } from "../src/render.js";
 
 const source = path.resolve("examples/smoke-test.msb");
 const configuration = path.resolve("msbc/previz-mock.msbc");
@@ -68,5 +70,43 @@ describe("previz workflow", () => {
         storyboard,
       }),
     ).rejects.toThrow("must be approved");
+  }, 60_000);
+
+  it("extracts the embedded review MP4 via `msb inspect --extract`", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "msb-previz-extract-"));
+    const storyboard = path.join(root, "storyboard.msbo");
+    const previz = path.join(root, "previz.msbo");
+    const extracted = path.join(root, "review.mp4");
+    await createStoryboard(source, storyboard);
+    await approveStoryboard(storyboard, source);
+    await createPreviz(source, {
+      output: previz,
+      configuration,
+      storyboard,
+      maxCost: 0,
+    });
+    await execa(process.execPath, [
+      "dist/cli.js",
+      "inspect",
+      previz,
+      "--extract",
+      extracted,
+    ]);
+    expect((await stat(extracted)).size).toBeGreaterThan(0);
+
+    const render = path.join(root, "render.msbo");
+    await renderMovie(source, {
+      output: render,
+      configuration: path.resolve("msbc/mock.msbc"),
+    });
+    await expect(
+      execa(process.execPath, [
+        "dist/cli.js",
+        "inspect",
+        render,
+        "--extract",
+        path.join(root, "unused.mp4"),
+      ]),
+    ).rejects.toThrow("has no embedded review movie");
   }, 60_000);
 });
