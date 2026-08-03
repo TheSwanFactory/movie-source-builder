@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execa } from "execa";
@@ -71,13 +71,18 @@ export async function createPreviz(
   try {
     const rawMovie = path.join(work, "raw.mp4");
     const reviewMovie = path.join(work, "previz.mp4");
+    const captionFile = path.join(work, "previz-caption.srt");
+    await writeFile(
+      captionFile,
+      "1\n00:00:00,000 --> 99:59:59,000\nPREVIZ — NOT PRODUCTION\n",
+    );
     await exportMovie(options.output, rawMovie);
     await execa(ffmpegPath, [
       "-y",
       "-i",
       rawMovie,
       "-vf",
-      "drawbox=x=0:y=0:w=iw:h=54:color=black@0.70:t=fill,drawtext=text='PREVIZ — NOT PRODUCTION':x=(w-text_w)/2:y=14:fontsize=24:fontcolor=white",
+      `drawbox=x=0:y=0:w=iw:h=54:color=black@0.70:t=fill,subtitles='${captionFile.replaceAll("'", "'\\''")}':force_style='FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H00FFFFFF,Outline=0,Shadow=0,Alignment=6,MarginV=16'`,
       "-c:v",
       "libx264",
       "-pix_fmt",

@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased
+All notable changes to this project are documented in this file.
+
+## [0.5.0] - 2026-08-02
 
 - Added `msb previz` with explicit low-cost configuration, optional approved-storyboard validation, provider-free dry runs, cost limits, resumable shot reuse, normalized provider-input provenance, non-production review MP4s, and source/artifact-bound approval.
 - Added `msbc/previz-mock.msbc` and automated provider-free previz contract coverage.
-
-All notable changes to this project are documented in this file.
 
 ## [0.4.0] - 2026-08-01
 
