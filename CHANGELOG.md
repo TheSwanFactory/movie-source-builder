@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.6.0] - 2026-08-04
+
+### Added
+
+- Added opt-in shot chaining (Tier A, #11): a shot's `chainFrom: <earlier-shot-id>` field chains it to an earlier shot in the same manifest. `image-to-video` only; the shot must still author its own `references.composition`, which chaining verifies against rather than replaces.
+- Added `src/chain.ts`: `extractLastFrame` (ffmpeg) pulls a rendered shot's last frame; `compareFrameSimilarity` (ffmpeg SSIM, scaled to a common size first) scores it against another image in `[0, 1]`.
+- At render time, once a chained shot's predecessor completes, its last frame is compared against the chained shot's own authored composition. A close match (`CHAIN_SIMILARITY_THRESHOLD`, currently `0.6`) promotes the real extracted frame as the actual render input in place of the authored still; a miss fails the shot with a message naming the shot, predecessor, and measured score. There is no silent fallback and no automatic retry — a producer edits the predecessor or the shot and reruns.
+- Chained cache keys fold the predecessor's already-computed cache key into their own hash, so `msb render --dry-run` resolves and prices a chain with zero provider requests, and an authored change to a predecessor correctly cascades to everything chained after it.
+- Chained rendering serializes correctly under concurrency: a worker holding a chained shot polls its predecessor's status rather than racing ahead, while unrelated shots keep parallelizing under `--concurrency`.
+
+### Changed
+
+- The mock renderer never consumes `references.composition`, so chained mock shots wait for ordering but skip the similarity check entirely; the real gate only runs on the `fal` path.
+- Documented shot chaining's design, implementation, and known limitations (a deterministic pixel/structural heuristic, not semantic drift detection; Tier B and previz remain proposed) in `docs/CONTRIBUTING.md` and `docs/01-quick-start.md`.
+
+### Validation
+
+- Added unit and integration coverage for chaining: unknown/self/forward-referencing `chainFrom`, a chained shot with no authored composition, chaining under `reference-to-video`, cache-key cascade on a predecessor's content change, correct ordering under concurrency with the mock provider, and resuming a completed chain without hanging.
+- Manual, cost-capped smoke test with the mock provider confirmed correct dependency ordering end to end via the built CLI.
+
 ## [0.5.0] - 2026-08-03
 
 ### Added
