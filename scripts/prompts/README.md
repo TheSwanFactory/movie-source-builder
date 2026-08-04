@@ -4,7 +4,10 @@ A numbered sequence driving the end-to-end quick-start loop (see
 [`docs/01-quick-start.md`](../../docs/01-quick-start.md)), meant to be fed to
 an orchestrator running two agents — **Author** and **Producer** — until a
 movie is done. Every file in this directory is part of the sequence; there
-are no separate, un-numbered steps.
+are no separate, un-numbered steps. See
+[`docs/03-prompt-architecture.md`](../../docs/03-prompt-architecture.md) for
+how these files, the scripts that read them, and image-generating vs.
+non-image-generating agents are meant to interact.
 
 A couple of these files are also read directly (and hashed for provenance) by
 `scripts/generate-storyboard-prompts.mjs`, which strips each file's
