@@ -38,6 +38,9 @@ That's the whole loop. `msb make <bundle.msb> --config <engine.msbc>`
 collapses the render and export steps into one command. Everything below is
 reference for when a step above needs more than the one-line version.
 
+Ready-to-use prompts for each numbered step above, tagged Author/Producer, are
+in [`scripts/prompts/quick-start.md`](../scripts/prompts/quick-start.md).
+
 ## Install
 
 ```bash
