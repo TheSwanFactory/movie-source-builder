@@ -277,10 +277,16 @@ See [#11](../../../issues/11) for the authoritative list. Status against Tier A:
       window today.)
 - [ ] Docs state plainly what is and isn't guaranteed — done for Tier A above;
       still needs the equivalent honesty once Tier B ships.
-- [ ] A cost-capped manual re-render of a prior skit shot confirms a measurable
-      improvement over the independent-shot baseline — not yet run; requires a
-      real fal credential and deliberate spend, so it's left as a manual
-      follow-up rather than something this change does automatically.
+- [x] A cost-capped manual paid test against real fal Hailuo 02 Standard
+      confirmed the gate is a genuine check against live provider output, not
+      just mock plumbing: it correctly rejected a real chain with a real
+      framing mismatch (similarity 0.299) between independently-authored
+      shots, and correctly promoted a real extracted frame (similarity 1.000)
+      once shot 2 was authored to match shot 1's actual rendered output. See
+      the `CHANGELOG.md` entry for the full account, including the
+      non-determinism finding it surfaced. This demonstrates the mechanism
+      works, not a controlled A/B comparison against the independent-shot
+      baseline's visual output.
 
 ### Out of scope
 
