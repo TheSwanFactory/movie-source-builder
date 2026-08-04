@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import { loadMsb, shotReferencePaths } from "../dist/render.js";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
+const stripFrontmatter = (text) =>
+  text.replace(/^---\n[\s\S]*?\n---\n/, "").trim();
 const args = process.argv.slice(2);
 const source = args.find((arg) => !arg.startsWith("--"));
 const option = (name) => {
@@ -20,13 +22,17 @@ if (!source) {
 }
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const imageTemplate = await readFile(
-  path.join(root, "prompts/storyboard-image.md"),
-  "utf8",
+const imageTemplate = stripFrontmatter(
+  await readFile(
+    path.join(root, "prompts/02-producer-generate-reference-images.md"),
+    "utf8",
+  ),
 );
-const audioTemplate = await readFile(
-  path.join(root, "prompts/storyboard-audio.md"),
-  "utf8",
+const audioTemplate = stripFrontmatter(
+  await readFile(
+    path.join(root, "prompts/05-producer-generate-timing-audio.md"),
+    "utf8",
+  ),
 );
 const loaded = await loadMsb(source);
 const characters = new Map(
@@ -104,11 +110,11 @@ const report = {
   sourceHash: loaded.sourceHash,
   templates: {
     image: {
-      path: "scripts/prompts/storyboard-image.md",
+      path: "scripts/prompts/02-producer-generate-reference-images.md",
       hash: hash(imageTemplate),
     },
     audio: {
-      path: "scripts/prompts/storyboard-audio.md",
+      path: "scripts/prompts/05-producer-generate-timing-audio.md",
       hash: hash(audioTemplate),
     },
   },

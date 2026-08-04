@@ -1,15 +1,17 @@
 # Prompts
 
-This directory holds two different kinds of canonical prompt:
+A numbered sequence driving the end-to-end quick-start loop (see
+[`docs/01-quick-start.md`](../../docs/01-quick-start.md)), meant to be fed to
+an orchestrator running two agents — **Author** and **Producer** — until a
+movie is done. Every file in this directory is part of the sequence; there
+are no separate, un-numbered steps.
 
-- A **numbered sequence** driving the end-to-end quick-start loop
-  (see [`docs/01-quick-start.md`](../../docs/01-quick-start.md)), meant to be
-  fed to an orchestrator running two agents — **Author** and **Producer** —
-  until a movie is done.
-- **Unnumbered templates** for specific sub-tasks (e.g. generating reference
-  imagery or timing audio), referenced by relative path from within whichever
-  numbered step's prompt needs them. These aren't part of the sequence and
-  aren't dispatched on their own.
+A couple of these files are also read directly (and hashed for provenance) by
+`scripts/generate-storyboard-prompts.mjs`, which strips each file's
+frontmatter before embedding its instruction, verbatim, into a generated
+per-shot or per-dialogue-event prompt plan. That mechanism is independent of
+the orchestrator protocol below — it doesn't change how those files are
+discovered or dispatched as steps.
 
 ## Orchestrator protocol
 
@@ -26,13 +28,15 @@ This directory holds two different kinds of canonical prompt:
    context (a review step needs to know what an earlier step intended).
 4. Dispatch steps strictly in order. Advance to the next numbered file only
    once the current step is done:
-   - For a **producer** step, done means the command(s) it specifies
-     completed successfully and produced the artifact the step describes.
+   - For a **producer** step, done means the command(s) or generation task it
+     specifies completed successfully and produced the artifact the step
+     describes.
    - For an **author** step, done means the agent has delivered its actual
      output for that step (a script, a review decision, a sign-off) — not
      just acknowledged the prompt.
 5. Stop when there is no next numbered file after the one that just
    completed. There is no separate "finished" signal to look for.
-6. If a step's prompt references another file in this directory by path, that
-   file is read and used by the agent handling that step, not by the
-   orchestrator directly.
+6. A step's own instructions take precedence over its number's default
+   framing — e.g. an asset-generation step may need to run once per
+   character, location, or shot rather than once for the whole movie; read
+   what the step actually says, not just its title.

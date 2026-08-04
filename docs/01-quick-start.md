@@ -9,30 +9,35 @@ Two roles, either of which can be a human or an AI:
 
 1. **Author** writes the script: screenplay, characters, shot list, in
    whatever raw form is natural.
-2. **Producer** turns it into a bundle: creates the folder, packages
-   character/location reference images, structures the shots, and runs
-   `msb pack <folder> --out movie.msb`.
-3. **Author** reviews look-and-feel on the zero-cost local storyboard, before
+2. **Producer** generates or sources the reference images each shot's
+   renderer mode will need — one isolated, neutral-backdrop image per
+   character/location, plus one ensemble composition per `image-to-video`
+   shot (or identity sheets for `reference-to-video`).
+3. **Producer** packs the bundle: structures the folder, references the
+   generated images, and runs `msb pack <folder> --out movie.msb`.
+4. **Author** reviews look-and-feel on the zero-cost local storyboard, before
    anything paid happens: `msb storyboard movie.msb --out storyboard.msbo`,
    then `msb inspect storyboard.msbo` and watch the review MP4.
-4. **Producer** validates and prices the plan: `msb validate movie.msb
+5. **Producer** optionally generates temporary AI timing narration for that
+   review, instead of `--timing-voices`' local macOS speech.
+6. **Producer** validates and prices the plan: `msb validate movie.msb
 --config <engine.msbc>`, `msb render movie.msb --config <engine.msbc>
 --dry-run`.
-5. **Author** records sign-off on the reviewed storyboard, hash-bound to the
+7. **Author** records sign-off on the reviewed storyboard, hash-bound to the
    exact source: `msb approve storyboard.msbo --source movie.msb`. This is a
    durable record for later audit, not an enforced gate — `msb render` does
    not check it, and nothing today stops a producer from rendering without
    ever running `storyboard` or `approve` at all.
-6. **Producer** renders within a cost cap: `msb render movie.msb --config
+8. **Producer** renders within a cost cap: `msb render movie.msb --config
 <engine.msbc> --out movie.msbo --max-cost 2.00`.
-7. **Producer** opts a shot into chaining (`chainFrom: <earlier-shot-id>`,
+9. **Producer** opts a shot into chaining (`chainFrom: <earlier-shot-id>`,
    `image-to-video` only): as that shot renders, its predecessor's last frame
    is tested against its own authored composition — a close match promotes the
    real frame as the actual render input, a miss fails the shot rather than
    silently rendering from the stale still. See
    [Reference: shot chaining](#reference-shot-chaining).
-8. **Author** reviews the finished cut against intent.
-9. **Producer** exports the deliverable: `msb export movie.msbo --out movie.mp4`.
+10. **Author** reviews the finished cut against intent.
+11. **Producer** exports the deliverable: `msb export movie.msbo --out movie.mp4`.
 
 That's the whole loop. `msb make <bundle.msb> --config <engine.msbc>`
 collapses the render and export steps into one command. Everything below is
