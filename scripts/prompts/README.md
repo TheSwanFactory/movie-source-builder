@@ -26,8 +26,8 @@ discovered or dispatched as steps.
    Producer — and reuse the same one across every step tagged for that role,
    rather than spinning up a fresh one per step. Later steps depend on earlier
    context (a review step needs to know what an earlier step intended).
-4. Dispatch steps strictly in order. Advance to the next numbered file only
-   once the current step is done:
+4. Dispatch steps in order by default. Advance to the next numbered file only
+   once the current step is done (see rule 7 for the non-linear exception):
    - For a **producer** step, done means the command(s) or generation task it
      specifies completed successfully and produced the artifact the step
      describes.
@@ -40,3 +40,15 @@ discovered or dispatched as steps.
    framing — e.g. an asset-generation step may need to run once per
    character, location, or shot rather than once for the whole movie; read
    what the step actually says, not just its title.
+7. Dispatch is only linear on the happy path. A review step (any `author`
+   step whose job is to check earlier work — reference images, storyboard,
+   finished cut) can come back with "revise," not just "approved." When it
+   does, its own text says what to redo and how far back to go — jump the
+   cursor there instead of advancing to the next number. Re-run a producer
+   step narrowly, for only the shots/characters/locations actually flagged,
+   not the whole movie, unless the step's instructions say otherwise. This
+   includes splitting one shot into several when a renderer needs more
+   keyframes than a single reference image can honestly represent (see the
+   reference-image review step): treat the resulting new shots as newly
+   inserted work items that still need their own reference-image generation
+   and review before the sequence can proceed to packing.

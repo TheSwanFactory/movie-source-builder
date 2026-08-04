@@ -1,5 +1,5 @@
 ---
-step: 6
+step: 8
 role: producer
 ---
 

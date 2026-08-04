@@ -30,7 +30,7 @@ const imageTemplate = stripFrontmatter(
 );
 const audioTemplate = stripFrontmatter(
   await readFile(
-    path.join(root, "prompts/05-producer-generate-timing-audio.md"),
+    path.join(root, "prompts/07-producer-generate-timing-audio.md"),
     "utf8",
   ),
 );
@@ -114,7 +114,7 @@ const report = {
       hash: hash(imageTemplate),
     },
     audio: {
-      path: "scripts/prompts/05-producer-generate-timing-audio.md",
+      path: "scripts/prompts/07-producer-generate-timing-audio.md",
       hash: hash(audioTemplate),
     },
   },

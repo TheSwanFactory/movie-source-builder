@@ -17,7 +17,7 @@ describe("published package contents", () => {
       "scripts/prompts/02-producer-generate-reference-images.md",
     );
     expect(paths).toContain(
-      "scripts/prompts/05-producer-generate-timing-audio.md",
+      "scripts/prompts/07-producer-generate-timing-audio.md",
     );
     expect(paths).toContain("schemas/msbo-output.schema.json");
   });
