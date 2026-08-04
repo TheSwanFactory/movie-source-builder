@@ -14,6 +14,7 @@ import {
   renderMovie,
   verifyRendererAuthentication,
 } from "../src/render.js";
+import { msbManifestSchema, type MsbManifest } from "../src/schema.js";
 
 let bundle: string;
 const configuration = path.resolve("msbc/mock.msbc");
@@ -321,4 +322,141 @@ describe("renderer authentication", () => {
       else process.env.FAL_KEY = previous;
     }
   });
+});
+
+async function chainedBundle(
+  change: (manifest: MsbManifest) => void,
+): Promise<string> {
+  const chainRoot = await mkdtemp(path.join(tmpdir(), "msb-render-chain-"));
+  const entries = await readArchive(bundle);
+  const manifest = msbManifestSchema.parse(
+    JSON.parse(entries.get("msb.json")!.toString()),
+  );
+  change(manifest);
+  entries.set("msb.json", Buffer.from(JSON.stringify(manifest)));
+  const chained = path.join(chainRoot, "chained.msb");
+  await writeArchive(entries, chained);
+  return chained;
+}
+
+describe("shot chaining", () => {
+  it("rejects chainFrom to an unknown shot", async () => {
+    const chained = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = "no-such-shot";
+    });
+    await expect(createPlan(chained, configuration)).rejects.toThrow(
+      "chains from unknown shot",
+    );
+  });
+
+  it("rejects a self-referential chainFrom", async () => {
+    const chained = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = manifest.shots[1]!.id;
+    });
+    await expect(createPlan(chained, configuration)).rejects.toThrow(
+      "cannot chain from itself",
+    );
+  });
+
+  it("rejects a forward-referencing chainFrom", async () => {
+    const chained = await chainedBundle((manifest) => {
+      manifest.shots[0]!.chainFrom = manifest.shots[1]!.id;
+    });
+    await expect(createPlan(chained, configuration)).rejects.toThrow(
+      "must chain from an earlier shot",
+    );
+  });
+
+  it("rejects chaining a shot with no authored composition", async () => {
+    const chained = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
+      manifest.shots[1]!.references = { identity: [] };
+    });
+    await expect(createPlan(chained, configuration)).rejects.toThrow(
+      "has no references.composition to verify against",
+    );
+  });
+
+  it("rejects chaining under a reference-to-video renderer mode", async () => {
+    const chained = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
+    });
+    await expect(
+      createPlan(chained, path.resolve("msbc/fal-veo-3.1-fast-reference.msbc")),
+    ).rejects.toThrow('requires renderer.mode "image-to-video"');
+  });
+
+  it("cascades a predecessor's content change into the chained shot's cache key", async () => {
+    const baseline = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
+    });
+    const changed = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
+      manifest.shots[0]!.action = `${manifest.shots[0]!.action} (revised)`;
+    });
+    const baselinePlan = await createPlan(baseline, configuration);
+    const changedPlan = await createPlan(changed, configuration);
+    expect(baselinePlan.units[0]!.cacheKey).not.toBe(
+      changedPlan.units[0]!.cacheKey,
+    );
+    expect(baselinePlan.units[1]!.cacheKey).not.toBe(
+      changedPlan.units[1]!.cacheKey,
+    );
+    expect(baselinePlan.units[2]!.cacheKey).toBe(
+      changedPlan.units[2]!.cacheKey,
+    );
+  });
+
+  it("dry-runs a chained manifest without provider requests", async () => {
+    const chained = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
+    });
+    const plan = await renderMovie(chained, {
+      output: `${chained}.msbo`,
+      configuration,
+      dryRun: true,
+    });
+    expect(plan.units).toHaveLength(3);
+    expect(plan.units[1]!.chainFrom).toBe(plan.units[0]!.id);
+  });
+
+  it("renders a chain in dependency order under concurrency and skips the mock similarity gate", async () => {
+    const chained = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
+    });
+    const output = `${chained}.msbo`;
+    await renderMovie(chained, { output, configuration, concurrency: 3 });
+    const entries = await readArchive(output);
+    const result = JSON.parse(entries.get("msbo.json")!.toString());
+    expect(result.status).toBe("complete");
+    expect(
+      result.shots.every(
+        (shot: { status: string }) => shot.status === "complete",
+      ),
+    ).toBe(true);
+    expect(new Date(result.shots[0].completedAt).getTime()).toBeLessThanOrEqual(
+      new Date(result.shots[1].completedAt).getTime(),
+    );
+    expect(
+      result.shots[1].warnings.some((warning: string) =>
+        warning.includes("composition promoted"),
+      ),
+    ).toBe(false);
+  }, 60_000);
+
+  it("resumes a completed chain without hanging on an already-reused predecessor", async () => {
+    const chained = await chainedBundle((manifest) => {
+      manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
+    });
+    const output = `${chained}.msbo`;
+    await renderMovie(chained, { output, configuration });
+    await renderMovie(chained, { output, configuration });
+    const entries = await readArchive(output);
+    const result = JSON.parse(entries.get("msbo.json")!.toString());
+    expect(
+      result.shots.every((shot: { warnings: string[] }) =>
+        shot.warnings.includes("reused from prior output"),
+      ),
+    ).toBe(true);
+  }, 60_000);
 });

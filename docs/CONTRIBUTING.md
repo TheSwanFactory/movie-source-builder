@@ -22,7 +22,7 @@ These are enforced by tests and code review, not aspirational:
 
 - No provider secrets are persisted anywhere: not in `.msb`, `.msbc`, `.msbo`,
   reports, caches, or logs. `.msbc` records only required environment-variable
-  *names*; values are read from the environment at call time only.
+  _names_; values are read from the environment at call time only.
 - No paid request occurs in tests, dry-run, `validate`, `inspect`, `storyboard`,
   or `export`. Automated tests use only the mock renderer.
 - Input archives are never trusted or extracted without complete
@@ -88,10 +88,12 @@ before merging a release that should publish. Trusted publisher configuration:
 organization/user `TheSwanFactory`, repository `movie-source-builder`, workflow
 filename `publish.yml`, allowed action `npm publish`.
 
-## Proposed: previz & shot chaining (#11)
+## Shot chaining (#11)
 
-Status: proposed, not implemented. Tracks [#11](../../../issues/11). Builds on
-the honest continuity gap documented in
+Status: **Tier A is implemented.** Tier B (`first-last-frame-to-video`,
+`extend-video`) and previz (AI-generated keyframes) remain proposed, not
+implemented. Tracks [#11](../../../issues/11). Builds on the honest continuity
+gap documented in
 [Designing for continuity](01-quick-start.md#designing-for-continuity-todays-real-limits)
 and the deferred follow-up from #4 ("evaluate first/last-frame and
 `extend-video` endpoints separately for shot chaining").
@@ -99,50 +101,60 @@ and the deferred follow-up from #4 ("evaluate first/last-frame and
 ### The problem
 
 Every shot renders from the manifest's authored references and prose
-`continuity` only. Nothing about a shot's *actual rendered output* — its last
+`continuity` only. Nothing about a shot's _actual rendered output_ — its last
 frame, its motion, whether it drifted from what was planned — ever reaches the
 next shot's request. `reference-to-video` has it worst: with no starting-frame
 image at all, it has zero visual grounding for mid-story state and leans
 entirely on prose to avoid re-inventing the set each shot.
 
-### The model
+### The model — as actually implemented (Tier A)
 
-1. **Previz** generates a keyframe for every shot, up front, before any paid
-   video rendering. This is a new dependency, not glue code: no
-   image-generation adapter exists in this codebase today —
-   `composition`/`identity` are always producer-supplied PNGs (a producer here
-   is whoever or whatever makes creative calls: a human, an AI, or some mix —
-   the pipeline doesn't care which).
-2. Review the full generated sequence as a storyboard — extending the existing
-   zero-cost `msb storyboard`/`approve` workflow
-   ([`src/storyboard.ts`](../src/storyboard.ts)) to preview generated keyframes
-   instead of only whatever reference already exists.
-3. Render shot N, extract its last frame (Tier A below) or use the renderer's
-   own video-context output (Tier B), and compare it against the
-   already-planned keyframe for shot N+1 — not the chain's original keyframe,
-   the *next* one, since that's the tighter, more localized test.
-4. Close enough → keyframe N+1 is *replaced* with the real frame; shot N+1
-   renders from that promoted, ground-truth composition instead of the
-   originally-planned one.
-5. Not close enough → tweak shot N's prompt and rerun shot N; re-check before
-   advancing to N+1.
+The implementation deliberately decouples from previz: a chained shot still
+authors its own `references.composition` as normal (that's the "planned"
+keyframe to verify against) — it does not require an AI-generated keyframe to
+exist first. Previz (below) is a separate, still-unimplemented enhancement
+that would let that authored composition itself be AI-generated instead of
+producer-drawn; chaining doesn't wait on it.
 
-The gate in steps 3–5 must actually block. A drift check that only logs a
-warning while the render proceeds anyway defeats the point — the entire reason
-to serialize chained rendering is to *prevent* drift, not to observe it after
-the fact once money's already spent on everything downstream. Who performs the
-judging (step 3) and who performs the tweaking (step 5) — a human producer or
-an AI judge/editor — is a separate question from whether the gate exists; both
-roles can be filled by either.
+1. A shot opts in with `chainFrom: <earlier-shot-id>`
+   ([`src/schema.ts`](../src/schema.ts)), validated in
+   `validateManifestSemantics` ([`src/render.ts`](../src/render.ts)): must
+   reference an existing, strictly-earlier shot, not itself, and the shot must
+   still author `references.composition` (chaining is a verify-and-promote
+   overlay on normal authoring, never a replacement for it). Chaining is
+   further restricted to `renderer.mode: "image-to-video"` (checked in
+   `validateRendererInputs`, uniformly for `mock` and `fal`) — there's no
+   `composition` role to verify against under `reference-to-video`.
+2. At render time, once the predecessor shot completes, its last frame is
+   extracted (`extractLastFrame`, [`src/chain.ts`](../src/chain.ts)) and
+   compared against this shot's own authored composition via ffmpeg's `ssim`
+   filter (`compareFrameSimilarity`, same file).
+3. Close enough (`CHAIN_SIMILARITY_THRESHOLD`, currently `0.6`) → the real
+   extracted frame is uploaded as this shot's actual composition input instead
+   of the authored still (`renderFalShot`'s `compositionOverride` parameter),
+   and a warning records the promotion and score.
+4. Not close enough → the shot (and the render) fails with a clear message
+   naming the shot, predecessor, and measured score. **No auto-retry or
+   prompt-tweaking is implemented** — a producer edits the predecessor (or the
+   threshold) and reruns; the existing resumable/cache-key model already makes
+   that a normal `msb render` rerun, not new machinery.
 
-For judging, raw frame similarity is the wrong test — the scene is supposed to
-evolve, not stay pixel-identical. What's worth protecting is the shot's own
-`continuity[]` invariants (color, badge, screen position, wardrobe, scale, set
-layout, props) — concrete things producers are already required to state (see
-[Designing for continuity](01-quick-start.md#designing-for-continuity-todays-real-limits)).
-An automated judge can check the extracted frame against those specific
-invariants and name which one broke, instead of returning a vague similarity
-score.
+The gate genuinely blocks: a failed comparison throws, which fails the shot
+through the same path any other render failure takes — there is no code path
+that logs a warning and proceeds anyway.
+
+**Known limitation:** the similarity check is a deterministic pixel/structural
+heuristic (SSIM), not semantic drift detection — it cannot tell "the scene
+evolved as intended" from "the scene evolved in the wrong way," only "this
+looks like that." An AI judge checking the shot's own `continuity[]`
+invariants (color, badge, screen position, wardrobe, scale, set layout, props)
+instead of raw pixels would be a strictly better check, but was deliberately
+deferred to avoid introducing a new paid provider dependency, credentials, and
+cost surface for the first implementation (confirmed as the right v1 tradeoff
+during design). The mock renderer (`renderMockShot`) never consumes
+`references.composition` at all, so the gate is skipped entirely for `mock` —
+chained mock shots still wait for their predecessor (ordering is real and
+tested), but there is nothing real to compare.
 
 This also implies scenes should be split more finely at key action
 transitions: a shorter link between keyframes makes "did this shot drift from
@@ -151,16 +163,13 @@ is already baked in by the time anyone checks.
 
 ### Two tiers of render-time mechanism
 
-- **Tier A — works with existing renderers.** After rendering shot N, extract
-  its last frame with the already-bundled `ffmpeg-static` and feed it as shot
-  N+1's `composition`. No change to `falModelCapabilities` — every current
-  `image-to-video` entry (Hailuo, LTX, Veo image-to-video) already accepts
-  exactly one `composition` raster; this only changes where that raster comes
-  from. Cheapest to build, weakest fidelity (a still, not video context).
-  Doesn't help `reference-to-video`, which has no `composition` role at all —
-  the mode with the worst continuity problem today stays unaddressed by Tier A
-  alone.
-- **Tier B — higher-end composition, needs a new fal endpoint per mode:**
+- **Tier A — implemented, works with existing renderers.** Described above.
+  No change to `falModelCapabilities` — every current `image-to-video` entry
+  (Hailuo, LTX, Veo image-to-video) already accepts exactly one `composition`
+  raster; chaining only changes where that raster comes from. Doesn't help
+  `reference-to-video`, which has no `composition` role at all — the mode with
+  the worst continuity problem today stays unaddressed by Tier A alone.
+- **Tier B — proposed, not implemented. Needs a new fal endpoint per mode:**
   - `fal-ai/veo3.1/fast/first-last-frame-to-video`: `composition` maps to
     `first_frame_url`, `endFrame` to `last_frame_url`, both producer-supplied.
     No cross-shot dependency at all — just a new `RendererCapabilities` entry
@@ -177,34 +186,60 @@ is already baked in by the time anyone checks.
     [`src/schema.ts`](../src/schema.ts) today — 7s cannot be written in a
     manifest at all without a schema change first.
 
-### The architectural cost (Tier A and `extend-video` only)
+### The architectural cost — how Tier A actually solved it
 
-[`createPlan`](../src/render.ts) derives each `RenderPlanUnit.cacheKey` from
-`hash({ shot, refs, engine })` — purely authored inputs, computable before any
-request is made. A chained unit's cache key must also depend on its
-predecessor's actual output (`mediaHash`), which doesn't exist until the
-predecessor finishes rendering:
+The naive plan assumed a chained unit's cache key would need the predecessor's
+_actual rendered bytes_ (`mediaHash`), which don't exist until the predecessor
+finishes — implying `createPlan` would need to express chained units as
+"pending, depends on unit N" rather than a resolved hash. That turned out to
+be unnecessary. Since `chainFrom` must point strictly backward, `createPlan`
+instead threads a `Map<shotId, cacheKey>` forward while it processes
+`manifest.shots` in order, and folds the **predecessor's already-computed cache
+key** (not its media) into the chained shot's own hash:
+`hash({ shot, refs, engine, chainFrom: predecessorCacheKey })`. This is fully
+resolvable at plan time — `msb render --dry-run` needs no special-casing to
+report it — and still cascades correctly: if the predecessor's authored
+content changes, its cache key changes, which changes the child's, making it
+ineligible for reuse. This uses the same "cache key is the identity" model
+already governing reuse everywhere else in this codebase, so it doesn't
+introduce a new consistency rule.
 
-- `createPlan` must express a chained unit as "pending, depends on unit N" in a
-  dry run rather than a resolved hash — `msb render --dry-run` must still
-  report the dependency and estimated cost without resolving it, since #11's
-  acceptance criteria require dry-run to make no provider requests.
-- Invalidating/re-rendering shot N must cascade: every shot chained after it
-  needs its cache key recomputed and, if changed, its cached media discarded.
-- [`renderMovie`'s `renderWorker`](../src/render.ts) currently pulls the next
-  pending index from one shared counter (`nextIndex++`) with no ordering
-  constraint between units. A chained unit can't start until its predecessor
-  shows `status === "complete"`; the worker loop needs a readiness check
-  instead of "next index is free," so unrelated shots keep parallelizing under
-  `--concurrency` while chained shots serialize against each other.
-- A render interrupted mid-chain must let resume tell "predecessor complete,
-  successor not yet attempted" apart from "predecessor itself was mid-attempt"
-  — the existing `pending`/`complete`/`failed` status enum probably suffices,
-  but the resume path must specifically re-check predecessor completion before
-  dispatching a chained unit.
+**Known limitation:** because the dependency is on the predecessor's cache key
+rather than its actual bytes, a predecessor that gets _re-rendered_ without any
+authored change (e.g. after its cached media was corrupted, or a
+non-deterministic provider happens to produce different pixels on retry) does
+not cascade to the chained shot — by design, matching how this codebase
+already treats provider non-determinism elsewhere (cache-key equality is
+authored-identity equality, not byte equality).
 
-`first-last-frame-to-video` needs none of this — it's a schema/adapter change
-only, no cross-shot dependency.
+Ordering is enforced without rewriting `renderWorker`'s dispatch loop. Rather
+than turning the shared racing `nextIndex++` counter into a full
+readiness-queue (a much larger, riskier change to well-tested core logic), a
+worker that claims a chained unit whose predecessor isn't done yet **polls**
+`output.shots[predecessorIndex].status` on a 50ms interval inside its own
+claimed slot (`waitForChainPredecessor`) until it sees `"complete"` (or bails
+immediately on `"failed"` or a shared `stopped` flag). This correctly
+serializes the chain while unrelated shots keep parallelizing under
+`--concurrency` — verified in
+[`test/render.test.ts`](../test/render.test.ts) by rendering a 3-shot chain
+under `concurrency: 3` and confirming the predecessor's `completedAt` never
+lags the chained shot's. The one accepted inefficiency: the polling worker's
+own slot sits idle while waiting rather than being freed to grab other
+unclaimed work — a real but minor cost, not a correctness gap.
+
+Resume already works correctly for free: a chained shot's cache key is a
+regular string, so `reusableShots.get(unit.cacheKey)` (unchanged) reuses a
+previously-completed chained shot exactly like any other shot, and
+`waitForChainPredecessor` observes a reused predecessor's `"complete"` status
+immediately rather than hanging (tested explicitly). What is **not** yet
+tested is killing a render mid-chain (partway through the predecessor's own
+attempt) and resuming — the existing `pending`/`complete`/`failed` status enum
+should handle it the same way it already handles any other mid-render
+interruption, but this specific interleaving has not been exercised.
+
+`first-last-frame-to-video` (Tier B) needs none of this — it's a schema/adapter
+change only, no cross-shot dependency. `extend-video` (Tier B) would still need
+all of the above, applied to real media bytes instead of an authored still.
 
 ### What this changes about iteration
 
@@ -220,30 +255,41 @@ artifact of how it happens to be implemented.
 
 ### Acceptance criteria
 
-See [#11](../../../issues/11) for the authoritative list. Summarized:
+See [#11](../../../issues/11) for the authoritative list. Status against Tier A:
 
-- [ ] At least one Tier A/B mechanism is a registered `RendererCapabilities`
-      entry.
-- [ ] Chaining is opt-in; an unmodified manifest is unaffected.
-- [ ] The drift check is a blocking gate with a real effect on control flow —
-      not a warning that can be silently ignored.
-- [ ] Cache keys express the predecessor dependency; dry-run reports it without
+- [x] A mechanism is implemented (`chainFrom` + SSIM verify/promote; Tier A
+      needed no new `RendererCapabilities` entry — see above for why).
+- [x] Chaining is opt-in; an unmodified manifest is unaffected.
+- [x] The drift check is a blocking gate with a real effect on control flow —
+      a failed comparison throws and fails the shot, it never just warns.
+- [x] Cache keys express the predecessor dependency; dry-run reports it without
       provider requests.
-- [ ] Chained shots serialize against their own chain; unrelated shots still
-      parallelize under `--concurrency`.
-- [ ] Interrupted mid-chain renders resume without corrupt half-chained state.
-- [ ] Unit tests cover valid chain, missing predecessor, predecessor not yet
-      complete, and mixed chained/unchained manifests — no paid provider calls.
-- [ ] [`01-quick-start.md`](01-quick-start.md) states plainly what is and isn't
-      guaranteed: video-context extension is real continuity; frame handoff is
-      a still-image approximation; neither claims to fix identity drift by
-      itself.
+- [x] Chained shots serialize against their own chain; unrelated shots still
+      parallelize under `--concurrency` (tested).
+- [ ] Interrupted mid-chain renders resume without corrupt half-chained state
+      — resume-from-a-completed-chain is tested; a kill partway through the
+      predecessor's own attempt is not.
+- [x] Unit tests cover valid chain, unknown/self/forward-referencing
+      `chainFrom`, a shot with no authored composition, chaining under
+      `reference-to-video`, cache-key cascade, and reuse/resume — no paid
+      provider calls. ("Predecessor not yet complete" is exercised implicitly
+      by every chained render; there is no separate test forcing that exact
+      window today.)
+- [ ] Docs state plainly what is and isn't guaranteed — done for Tier A above;
+      still needs the equivalent honesty once Tier B ships.
 - [ ] A cost-capped manual re-render of a prior skit shot confirms a measurable
-      improvement over the independent-shot baseline.
+      improvement over the independent-shot baseline — not yet run; requires a
+      real fal credential and deliberate spend, so it's left as a manual
+      follow-up rather than something this change does automatically.
 
 ### Out of scope
 
 - Automatically chaining every shot without explicit opt-in.
+- Automatic prompt-tweaking/retry on a failed drift check — failure just stops
+  the render with a clear message; rerunning after a manual edit is a normal
+  `msb render`, not new machinery.
+- A CLI/config flag to bypass or tune the similarity threshold — currently a
+  fixed constant (`CHAIN_SIMILARITY_THRESHOLD` in `src/chain.ts`).
 - Claiming cross-shot continuity solved from a single successful manual test.
 - Reworking `image-to-video`/`reference-to-video` contracts unrelated to
   chaining.

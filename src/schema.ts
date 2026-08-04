@@ -107,6 +107,11 @@ export const msbManifestSchema = z.object({
             "Text prompt guidance only; this does not lock identity or pass frames between independently generated shots.",
           )
           .default([]),
+        chainFrom: id
+          .optional()
+          .describe(
+            "Id of an earlier shot to chain from. The shot must still author its own references.composition (the planned keyframe) and use an image-to-video renderer mode. At render time the predecessor's last rendered frame is compared against that authored composition; a close match promotes the real frame as the actual render input, otherwise the render fails rather than silently falling back. This is a similarity heuristic, not a guarantee of continuity.",
+          ),
       }),
     )
     .min(1),

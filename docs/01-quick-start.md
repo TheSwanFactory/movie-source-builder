@@ -16,27 +16,27 @@ Two roles, either of which can be a human or an AI:
    anything paid happens: `msb storyboard movie.msb --out storyboard.msbo`,
    then `msb inspect storyboard.msbo` and watch the review MP4.
 4. **Producer** validates and prices the plan: `msb validate movie.msb
-   --config <engine.msbc>`, `msb render movie.msb --config <engine.msbc>
-   --dry-run`.
+--config <engine.msbc>`, `msb render movie.msb --config <engine.msbc>
+--dry-run`.
 5. **Author** records sign-off on the reviewed storyboard, hash-bound to the
    exact source: `msb approve storyboard.msbo --source movie.msb`. This is a
    durable record for later audit, not an enforced gate — `msb render` does
    not check it, and nothing today stops a producer from rendering without
    ever running `storyboard` or `approve` at all.
 6. **Producer** renders within a cost cap: `msb render movie.msb --config
-   <engine.msbc> --out movie.msbo --max-cost 2.00`.
-7. **Producer** (proposed — not implemented) tests each chained shot's last
-   rendered frame against its next previz keyframe as the chain renders —
-   promoting that keyframe to the real frame on a match, or tweaking and
-   rerunning the shot's prompt on a miss, before the chain advances. See
-   [Contributing: previz & shot chaining](CONTRIBUTING.md#proposed-previz--shot-chaining-11).
+<engine.msbc> --out movie.msbo --max-cost 2.00`.
+7. **Producer** opts a shot into chaining (`chainFrom: <earlier-shot-id>`,
+   `image-to-video` only): as that shot renders, its predecessor's last frame
+   is tested against its own authored composition — a close match promotes the
+   real frame as the actual render input, a miss fails the shot rather than
+   silently rendering from the stale still. See
+   [Reference: shot chaining](#reference-shot-chaining).
 8. **Author** reviews the finished cut against intent.
 9. **Producer** exports the deliverable: `msb export movie.msbo --out movie.mp4`.
 
-That's the whole loop (step 7 aside — nothing to run there yet). `msb make
-<bundle.msb> --config <engine.msbc>` collapses the render and export steps
-into one command. Everything below is reference for when a step above needs
-more than the one-line version.
+That's the whole loop. `msb make <bundle.msb> --config <engine.msbc>`
+collapses the render and export steps into one command. Everything below is
+reference for when a step above needs more than the one-line version.
 
 ## Install
 
@@ -65,9 +65,11 @@ source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder
 
 Review progresses through checkpoints, each one before spending more:
 `storyboard → previz → render → export`. `storyboard` (step 4 above) is
-implemented today. `previz` — generating and verifying AI keyframes before
-paid rendering — is **proposed, not implemented**; see
-[Contributing](CONTRIBUTING.md#proposed-previz--shot-chaining-11).
+implemented today, and chaining a shot's render to its predecessor's actual
+output (step 7 above) is too. `previz` — generating a shot's keyframe with AI
+rather than authoring it, then verifying against that instead — is
+**proposed, not implemented**; see
+[Contributing](CONTRIBUTING.md#shot-chaining-11).
 
 ## Reference: authoring a bundle
 
@@ -120,10 +122,26 @@ A `reference-to-video` engine uses the individual character sheets directly as
   "formatVersion": "1.1.0",
   "project": { "id": "agent-skit", "title": "Agent Skit" },
   "characters": [
-    { "id": "agent-86", "name": "Agent 86", "description": "Red knit sock puppet with an 86 badge", "reference": "characters/agent-86.png" },
-    { "id": "agent-99", "name": "Agent 99", "description": "Blue knit sock puppet with a 99 badge", "reference": "characters/agent-99.png" }
+    {
+      "id": "agent-86",
+      "name": "Agent 86",
+      "description": "Red knit sock puppet with an 86 badge",
+      "reference": "characters/agent-86.png"
+    },
+    {
+      "id": "agent-99",
+      "name": "Agent 99",
+      "description": "Blue knit sock puppet with a 99 badge",
+      "reference": "characters/agent-99.png"
+    }
   ],
-  "locations": [{ "id": "control-center", "description": "Cardboard control center", "reference": "locations/control-center.png" }],
+  "locations": [
+    {
+      "id": "control-center",
+      "description": "Cardboard control center",
+      "reference": "locations/control-center.png"
+    }
+  ],
   "props": [],
   "shots": [
     {
@@ -135,7 +153,10 @@ A `reference-to-video` engine uses the individual character sheets directly as
       "action": "The two puppets address the control room.",
       "camera": "Locked medium two-shot.",
       "references": { "composition": "references/control-center-ensemble.png" },
-      "continuity": ["Agent 86 remains red with badge 86 on camera left", "Agent 99 remains blue with badge 99 on camera right"]
+      "continuity": [
+        "Agent 86 remains red with badge 86 on camera left",
+        "Agent 99 remains blue with badge 99 on camera right"
+      ]
     }
   ]
 }
@@ -151,9 +172,11 @@ for a complete three-character version.
 
 Video requests are independent regardless of mode. `continuity` is appended
 to the text prompt — it's guidance, not an identity lock or previous-frame
-handoff. This is a real limitation; see
-[Proposed: previz & shot chaining](CONTRIBUTING.md#proposed-previz--shot-chaining-11)
-for the design meant to address it. Until then:
+handoff. For `image-to-video`, [shot chaining](#reference-shot-chaining)
+(`chainFrom`) now gives a real, if partial, mitigation: a verified real frame
+instead of a static authored guess. `reference-to-video` still has nothing —
+see [Contributing](CONTRIBUTING.md#shot-chaining-11) for what's proposed
+beyond Tier A. In the meantime:
 
 1. Use one canonical `composition` (image-to-video) or the same `identity`
    sheets (reference-to-video) for every shot in a sequence.
@@ -199,14 +222,51 @@ generates a deterministic, hashed prompt plan per shot/dialogue event; add
 `--check` to reject missing or reused shot references before storyboard or
 provider work.
 
+## Reference: shot chaining
+
+For `image-to-video` shots, set `chainFrom: <earlier-shot-id>` to chain a shot
+to an earlier one in the same manifest (must reference an existing,
+strictly-earlier shot; the shot must still author its own
+`references.composition` — chaining verifies against it, it doesn't replace
+it):
+
+```json
+{
+  "id": "scene-001-shot-002",
+  "chainFrom": "scene-001-shot-001",
+  "references": { "composition": "references/scene-001-shot-002.png" }
+}
+```
+
+At render time, once `scene-001-shot-001` completes, its last frame is
+extracted and compared (via ffmpeg's SSIM filter) against
+`scene-001-shot-002`'s own authored composition. A close-enough match promotes
+the real extracted frame as the actual render input instead of the authored
+still; a miss fails the shot with a message naming the shot, predecessor, and
+measured score — it never silently falls back to the stale still. `msb render
+--dry-run` reports the dependency and cache key with zero provider requests;
+`--concurrency` still parallelizes unrelated shots while a chain serializes
+against itself.
+
+This is a deterministic pixel/structural-similarity heuristic, not semantic
+drift detection — it can tell "this looks like that," not "the scene evolved
+the way it was supposed to." It only runs against real (`fal`) renders; the
+mock provider never consumes composition images at all, so chained mock shots
+wait for ordering but skip the check. There's no automatic retry: a failed
+check requires editing the predecessor (or the shot) and rerunning — the
+existing resumable/cache-key model already makes that a normal `msb render`,
+nothing special. Full design and architectural detail:
+[Contributing: shot chaining](CONTRIBUTING.md#shot-chaining-11).
+
 ## Reference: previz (proposed — not implemented)
 
-The intended next checkpoint between the zero-cost storyboard and paid
-rendering: generate an actual keyframe per shot, review the sequence, then
-verify each rendered shot against its planned next keyframe during render —
-promoting the plan's keyframe to the real frame on a match, or retrying the
-shot's prompt on a miss. Full design, open questions, and architectural cost
-are in [Contributing: Proposed previz & shot chaining (#11)](CONTRIBUTING.md#proposed-previz--shot-chaining-11).
+A separate, still-unimplemented enhancement on top of chaining above: instead
+of a producer authoring every shot's `composition` by hand, generate it with
+AI up front, review the whole sequence as a storyboard, then let chaining
+verify against those generated keyframes the same way it already verifies
+against authored ones. Chaining does not wait on this — it already works
+against whatever composition a shot authors today. Open questions and
+architectural notes: [Contributing](CONTRIBUTING.md#shot-chaining-11).
 
 ## Reference: render and export
 

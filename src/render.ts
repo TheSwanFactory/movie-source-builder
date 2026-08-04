@@ -4,6 +4,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { readArchive, writeArchive } from "./archive.js";
 import {
+  CHAIN_SIMILARITY_THRESHOLD,
+  compareFrameSimilarity,
+  extractLastFrame,
+} from "./chain.js";
+import {
   msbManifestSchema,
   msbcConfigurationSchema,
   msbcFileSchema,
@@ -27,6 +32,7 @@ export interface RenderPlanUnit {
   cacheKey: string;
   estimatedCost: number;
   reused: boolean;
+  chainFrom?: string;
 }
 export interface RenderPlan {
   manifest: MsbManifest;
@@ -188,7 +194,10 @@ export function validateManifestSemantics(manifest: MsbManifest): void {
   const locationIds = requireUniqueIds("location", manifest.locations);
   requireUniqueIds("prop", manifest.props);
   requireUniqueIds("shot", manifest.shots);
-  for (const shot of manifest.shots) {
+  const shotIndex = new Map(
+    manifest.shots.map((shot, index) => [shot.id, index]),
+  );
+  for (const [index, shot] of manifest.shots.entries()) {
     if (new Set(shot.characters).size !== shot.characters.length)
       throw new Error(`shot ${shot.id} contains duplicate character ids`);
     for (const id of shot.characters)
@@ -209,6 +218,23 @@ export function validateManifestSemantics(manifest: MsbManifest): void {
         );
       if (line.end > shot.duration)
         throw new Error(`dialogue exceeds shot ${shot.id} duration`);
+    }
+    if (shot.chainFrom !== undefined) {
+      if (shot.chainFrom === shot.id)
+        throw new Error(`shot ${shot.id} cannot chain from itself`);
+      const predecessorIndex = shotIndex.get(shot.chainFrom);
+      if (predecessorIndex === undefined)
+        throw new Error(
+          `shot ${shot.id} chains from unknown shot: ${shot.chainFrom}`,
+        );
+      if (predecessorIndex >= index)
+        throw new Error(
+          `shot ${shot.id} must chain from an earlier shot, not ${shot.chainFrom}`,
+        );
+      if (!shot.references.composition)
+        throw new Error(
+          `shot ${shot.id} chains from another shot but has no references.composition to verify against`,
+        );
     }
   }
 }
@@ -367,6 +393,14 @@ export function validateRendererInputs(
   const provider = configuration.renderer.provider;
   const contract = rendererInputContracts[provider];
   if (!contract) throw new Error(`unsupported renderer provider: ${provider}`);
+  for (const shot of manifest.shots)
+    if (
+      shot.chainFrom !== undefined &&
+      configuration.renderer.mode !== "image-to-video"
+    )
+      throw new Error(
+        `shot ${shot.id} chains from another shot, which requires renderer.mode "image-to-video" (configured mode: "${configuration.renderer.mode}")`,
+      );
   contract.validate(manifest, entries, configuration);
 }
 
@@ -433,17 +467,26 @@ export async function createPlan(
     configured.configuration,
   );
   const completed = reusableShotMap(previous, previousEntries);
+  const cacheKeyByShotId = new Map<string, string>();
   const units = loaded.manifest.shots.map((shot) => {
     const refs = referencedAssets({ ...loaded.manifest, shots: [shot] }).map(
       (name) => [name, hash(loaded.entries.get(name) ?? "")],
     );
+    // shot.chainFrom always points to an earlier shot (validateManifestSemantics
+    // enforces this), so its cache key is already in the map by the time we get here.
+    const chainFromCacheKey =
+      shot.chainFrom !== undefined
+        ? cacheKeyByShotId.get(shot.chainFrom)
+        : undefined;
     const cacheKey = hash(
       JSON.stringify({
         shot,
         refs,
         engine: configured.configuration,
+        chainFrom: chainFromCacheKey,
       }),
     );
+    cacheKeyByShotId.set(shot.id, cacheKey);
     return {
       id: shot.id,
       duration: shot.duration,
@@ -453,6 +496,7 @@ export async function createPlan(
           ? 0
           : shot.duration * FALLBACK_COST_PER_SECOND,
       reused: completed.has(cacheKey),
+      ...(shot.chainFrom !== undefined ? { chainFrom: shot.chainFrom } : {}),
     };
   });
   return {
@@ -586,6 +630,10 @@ export async function renderMovie(
     string | null;
   if (!ffmpeg) throw new Error("bundled ffmpeg is unavailable");
   const concurrency = Math.max(1, options.concurrency ?? 1);
+  const unitIndexById = new Map(plan.units.map((unit, i) => [unit.id, i]));
+  const CHAIN_POLL_INTERVAL_MS = 50;
+  const sleep = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
   let nextIndex = 0;
   let stopped = false;
   let firstRenderError: unknown;
@@ -596,6 +644,77 @@ export async function renderMovie(
     );
     outputWriteChain = writePromise.catch(() => undefined);
     await writePromise;
+  };
+
+  const waitForChainPredecessor = async (unit: RenderPlanUnit) => {
+    if (unit.chainFrom === undefined) return;
+    const predecessorIndex = unitIndexById.get(unit.chainFrom);
+    if (predecessorIndex === undefined)
+      throw new Error(
+        `shot ${unit.id} chains from unknown unit: ${unit.chainFrom}`,
+      );
+    while (true) {
+      if (stopped)
+        throw new Error(
+          `render stopped before predecessor ${unit.chainFrom} of chained shot ${unit.id} completed`,
+        );
+      const predecessorResult = output.shots[predecessorIndex]!;
+      if (predecessorResult.status === "complete") return;
+      if (predecessorResult.status === "failed")
+        throw new Error(
+          `chained shot ${unit.id} cannot render: predecessor ${unit.chainFrom} failed`,
+        );
+      await sleep(CHAIN_POLL_INTERVAL_MS);
+    }
+  };
+
+  // Verifies the predecessor's actual rendered frame against this shot's own
+  // authored composition (the "planned" keyframe); a close-enough match
+  // promotes the real frame as the actual render input instead of the still.
+  // Only meaningful on the fal path — renderMockShot never consumes the
+  // composition image, so there is nothing real to verify for the mock
+  // provider (it still waits for ordering, above, but skips this check).
+  const resolveChainedComposition = async (
+    unit: RenderPlanUnit,
+    index: number,
+  ): Promise<Buffer> => {
+    const predecessorIndex = unitIndexById.get(unit.chainFrom!)!;
+    const predecessorResult = output.shots[predecessorIndex]!;
+    if (!predecessorResult.mediaPath)
+      throw new Error(
+        `chained shot ${unit.id}: predecessor ${unit.chainFrom} has no rendered media to chain from`,
+      );
+    const predecessorMedia = path.join(work, predecessorResult.mediaPath);
+    const shot = plan.manifest.shots[index]!;
+    const compositionPath = shot.references.composition!;
+    const compositionBytes = plan.entries.get(compositionPath);
+    if (!compositionBytes)
+      throw new Error(`referenced asset is missing: ${compositionPath}`);
+    const chainDir = path.join(work, "chain");
+    await mkdir(chainDir, { recursive: true });
+    const compositionTemp = path.join(
+      chainDir,
+      `${unit.id}-composition${path.extname(compositionPath)}`,
+    );
+    await writeFile(compositionTemp, compositionBytes);
+    const extractedFrame = path.join(
+      chainDir,
+      `${unit.id}-predecessor-frame.png`,
+    );
+    await extractLastFrame(predecessorMedia, extractedFrame, ffmpeg);
+    const score = await compareFrameSimilarity(
+      extractedFrame,
+      compositionTemp,
+      ffmpeg,
+    );
+    if (score < CHAIN_SIMILARITY_THRESHOLD)
+      throw new Error(
+        `shot ${unit.id} failed its chain drift check against predecessor ${unit.chainFrom}: similarity ${score.toFixed(3)} is below threshold ${CHAIN_SIMILARITY_THRESHOLD}`,
+      );
+    output.shots[index]!.warnings.push(
+      `composition promoted from predecessor ${unit.chainFrom}'s rendered frame (similarity ${score.toFixed(3)})`,
+    );
+    return readFile(extractedFrame);
   };
 
   const renderWorker = async () => {
@@ -622,9 +741,14 @@ export async function renderMovie(
           await writeOutput();
           continue;
         }
+        await waitForChainPredecessor(unit);
         const isFal = plan.configuration.renderer.provider === "fal";
+        const compositionOverride =
+          isFal && unit.chainFrom !== undefined
+            ? await resolveChainedComposition(unit, index)
+            : undefined;
         const requestId = isFal
-          ? await renderFalShot(plan, index, media, ffmpeg)
+          ? await renderFalShot(plan, index, media, ffmpeg, compositionOverride)
           : await renderMockShot(unit, output.settings, media, ffmpeg);
         const bytes = await readFile(media);
         Object.assign(result, {
@@ -759,6 +883,14 @@ async function renderMockShot(
   return `mock-${randomUUID()}`;
 }
 
+async function uploadFalBytes(
+  fal: Awaited<typeof import("@fal-ai/client")>["fal"],
+  bytes: Buffer,
+  mime: string,
+): Promise<string> {
+  return fal.storage.upload(new Blob([new Uint8Array(bytes)], { type: mime }));
+}
+
 async function uploadFalReference(
   fal: Awaited<typeof import("@fal-ai/client")>["fal"],
   entries: Map<string, Buffer>,
@@ -766,8 +898,7 @@ async function uploadFalReference(
 ): Promise<string> {
   const bytes = entries.get(reference);
   if (!bytes) throw new Error(`referenced asset is missing: ${reference}`);
-  const mime = imageMimeType(reference);
-  return fal.storage.upload(new Blob([new Uint8Array(bytes)], { type: mime }));
+  return uploadFalBytes(fal, bytes, imageMimeType(reference));
 }
 
 async function renderFalShot(
@@ -775,6 +906,7 @@ async function renderFalShot(
   index: number,
   media: string,
   ffmpeg: string,
+  compositionOverride?: Buffer,
 ): Promise<string> {
   const shot = plan.manifest.shots[index]!;
   const model = plan.configuration.renderer.model;
@@ -796,11 +928,17 @@ async function renderFalShot(
           model,
           plan.configuration.output,
           shot,
-          await uploadFalReference(
-            fal,
-            plan.entries,
-            shot.references.composition!,
-          ),
+          compositionOverride !== undefined
+            ? await uploadFalBytes(
+                fal,
+                compositionOverride,
+                imageMimeType(shot.references.composition!),
+              )
+            : await uploadFalReference(
+                fal,
+                plan.entries,
+                shot.references.composition!,
+              ),
         );
   const response = await fal.subscribe(model, {
     input,
