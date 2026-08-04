@@ -39,7 +39,9 @@ collapses the render and export steps into one command. Everything below is
 reference for when a step above needs more than the one-line version.
 
 Ready-to-use prompts for each numbered step above, tagged Author/Producer, are
-in [`scripts/prompts/quick-start.md`](../scripts/prompts/quick-start.md).
+the numbered files in [`scripts/prompts/`](../scripts/prompts/README.md) —
+that directory's README describes how an orchestrator can drive an Author and
+a Producer agent through them end to end.
 
 ## Install
 
