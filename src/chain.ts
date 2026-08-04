@@ -38,8 +38,16 @@ export async function compareFrameSimilarity(
 ): Promise<number> {
   const { stderr } = await execa(ffmpeg, [
     "-y",
+    "-loop",
+    "1",
+    "-t",
+    "1",
     "-i",
     pathA,
+    "-loop",
+    "1",
+    "-t",
+    "1",
     "-i",
     pathB,
     "-lavfi",
