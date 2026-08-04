@@ -1,5 +1,5 @@
 ---
-step: 5
+step: 6
 role: producer
 ---
 
@@ -10,5 +10,5 @@ Structure the author's screenplay into a Movie Source Bundle: write `msb.json` w
 Then run:
 
 ```bash
-msb pack <folder> --out movie.msb
+msb pack <folder> --out build/movie.msb
 ```

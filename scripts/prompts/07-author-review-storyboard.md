@@ -1,5 +1,5 @@
 ---
-step: 6
+step: 7
 role: author
 ---
 
@@ -8,8 +8,8 @@ role: author
 Run:
 
 ```bash
-msb storyboard movie.msb --out storyboard.msbo
-msb inspect storyboard.msbo
+msb storyboard build/movie.msb --out build/storyboard.msbo
+msb inspect build/storyboard.msbo
 ```
 
 Add `--timing-voices` (macOS) for disposable local narration, or hand the next

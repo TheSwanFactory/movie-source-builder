@@ -1,5 +1,5 @@
 ---
-step: 8
+step: 9
 role: producer
 ---
 
@@ -8,8 +8,8 @@ role: producer
 Run:
 
 ```bash
-msb validate movie.msb --config <engine.msbc>
-msb render movie.msb --config <engine.msbc> --dry-run
+msb validate build/movie.msb --config <engine.msbc>
+msb render build/movie.msb --config <engine.msbc> --dry-run
 ```
 
 Confirm zero validation errors and that the estimated cost is acceptable before proceeding.

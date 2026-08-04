@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -60,5 +60,77 @@ describe("canonical storyboard prompt plan", () => {
         "--check",
       ]),
     ).rejects.toThrow("storyboard prompt-plan validation failed");
+  });
+});
+
+describe("reference-image request plan (pre-pack directory mode)", () => {
+  it("reports every referenced asset's presence with a clean request for each generatable role", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "msb-requests-"));
+    const directory = path.join(root, "source");
+    await cp(path.resolve("examples/skit-poc"), directory, {
+      recursive: true,
+    });
+    const output = path.join(root, "requests.json");
+    await execa(process.execPath, [
+      "scripts/generate-storyboard-prompts.mjs",
+      directory,
+      "--out",
+      output,
+    ]);
+    const plan = JSON.parse(await readFile(output, "utf8"));
+    expect(plan.kind).toBe("reference-image-request-plan");
+    expect(
+      plan.requests.every(
+        (request: { status: string }) => request.status === "present",
+      ),
+    ).toBe(true);
+    const byRole = (role: string) =>
+      plan.requests.filter(
+        (request: { role: string }) => request.role === role,
+      );
+    expect(byRole("character-reference")).toHaveLength(3);
+    expect(byRole("location-reference")).toHaveLength(1);
+    expect(byRole("composition")).toHaveLength(3);
+    for (const request of byRole("composition"))
+      expect(request.identityAnchors.length).toBeGreaterThan(0);
+    await execa(process.execPath, [
+      "scripts/generate-storyboard-prompts.mjs",
+      directory,
+      "--require-complete",
+    ]);
+
+    await rm(path.join(directory, "characters/agent-86.png"));
+    await expect(
+      execa(process.execPath, [
+        "scripts/generate-storyboard-prompts.mjs",
+        directory,
+        "--require-complete",
+      ]),
+    ).rejects.toThrow("reference-image request plan is incomplete");
+  });
+
+  it("rejects --check in directory mode and --require-complete against a packed bundle", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "msb-requests-guard-"));
+    const directory = path.join(root, "source");
+    await cp(path.resolve("examples/skit-poc"), directory, {
+      recursive: true,
+    });
+    const bundle = path.join(root, "skit-poc.msb");
+    await writeArchiveFromDirectory(directory, bundle);
+
+    await expect(
+      execa(process.execPath, [
+        "scripts/generate-storyboard-prompts.mjs",
+        directory,
+        "--check",
+      ]),
+    ).rejects.toThrow("--check only applies to a packed .msb");
+    await expect(
+      execa(process.execPath, [
+        "scripts/generate-storyboard-prompts.mjs",
+        bundle,
+        "--require-complete",
+      ]),
+    ).rejects.toThrow("--require-complete only applies to a source directory");
   });
 });

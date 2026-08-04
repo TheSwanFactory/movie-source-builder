@@ -1,5 +1,5 @@
 ---
-step: 12
+step: 13
 role: producer
 ---
 
@@ -8,7 +8,7 @@ role: producer
 Run:
 
 ```bash
-msb export movie.msbo --out movie.mp4
+msb export build/movie.msbo --out build/movie.mp4
 ```
 
 The movie is done.

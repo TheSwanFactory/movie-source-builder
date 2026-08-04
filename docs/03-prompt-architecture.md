@@ -1,8 +1,8 @@
 # Prompt Architecture
 
 [`docs/01-quick-start.md`](01-quick-start.md) is the user-facing walkthrough of
-*what* to run. This document specifies *how the pieces that drive an
-autonomous run talk to each other* — prompts, scripts, humans, agents that can
+_what_ to run. This document specifies _how the pieces that drive an
+autonomous run talk to each other_ — prompts, scripts, humans, agents that can
 and can't generate images, and the artifacts that flow between them — for
 whoever implements or audits the orchestration layer in
 [`scripts/prompts/`](../scripts/prompts/README.md).
@@ -36,7 +36,9 @@ treated as a design bug, not a detail to patch around.
    a prompt file and embed its body (frontmatter stripped) verbatim into a
    generated artifact —
    [`scripts/generate-storyboard-prompts.mjs`](../scripts/generate-storyboard-prompts.mjs)
-   already does this for two files — but no script or other document may
+   already does this for three files (entity, shot-image, and audio
+   templates) across both its operating modes — but no script or other
+   document may
    paraphrase or duplicate prompt text; the `.md` file is what changes when
    the instruction changes.
 5. **Interim pipeline outputs (`.msb`, `.msbo`, `.mp4`) belong in the
@@ -58,11 +60,11 @@ treated as a design bug, not a detail to patch around.
 
 ### Actors — things that make decisions or produce content
 
-| Actor | Reads/judges artifacts | Writes text/JSON | Generates raster images | Runs `msb`/scripts |
-|---|---|---|---|---|
-| Human | yes | yes | yes (draws, photographs, or operates an image tool) | yes |
-| Non-image-generating agent | yes | yes | **no** | yes |
-| Image-generating agent | request only | no | yes | no |
+| Actor                      | Reads/judges artifacts | Writes text/JSON | Generates raster images                             | Runs `msb`/scripts |
+| -------------------------- | ---------------------- | ---------------- | --------------------------------------------------- | ------------------ |
+| Human                      | yes                    | yes              | yes (draws, photographs, or operates an image tool) | yes                |
+| Non-image-generating agent | yes                    | yes              | **no**                                              | yes                |
+| Image-generating agent     | request only           | no               | yes                                                 | no                 |
 
 A **non-image-generating agent** is any agent (the reference case is Claude)
 that can read a screenplay, judge a storyboard, edit `msb.json`, and run the
@@ -75,7 +77,7 @@ job is exactly "take this request, hand back one file at this path." Which
 provider sits behind that role (a fal image model, another vendor's
 generator, or a human with a camera) is deliberately unspecified — the
 contract is provider-agnostic by design, matching
-[the existing wording](01-quick-start.md) "generates *or sources*."
+[the existing wording](01-quick-start.md) "generates _or sources_."
 
 ### Instruments — things that carry instructions or transform artifacts, but don't decide anything
 
@@ -111,14 +113,14 @@ rendered bundle, the exported movie. Full lifecycle in the
 - **Script ↔ Prompt.** A script may read a prompt file and embed its body
   into a generated artifact for hashed provenance (assumption 4); prompts
   never read scripts.
-- **Non-image agent ↔ image-generating agent.** The *only* sanctioned channel
+- **Non-image agent ↔ image-generating agent.** The _only_ sanctioned channel
   between them is the request/response contract below. A non-image agent
   must never ask an image-generating one to "read the screenplay and figure
   out what's needed" — it resolves everything itself and hands over a
   request that needs no further context (assumption 7).
 - **Image-generating agent ↔ Artifact.** Writes exactly one raster file to
   the exact `outputPath` given in its request. Nothing else — no metadata
-  sidecar, no acknowledgment message. The file's existence at that path *is*
+  sidecar, no acknowledgment message. The file's existence at that path _is_
   the response.
 - **Author (human or agent) ↔ Artifact.** Reads and judges; never writes a
   raster itself. A rejection is expressed by invalidating the specific
@@ -130,47 +132,43 @@ rendered bundle, the exported movie. Full lifecycle in the
 
 ## The reference-image request/response contract
 
-**Status: proposed, not implemented.** This section specifies the fix for
-the gap found auditing this architecture: nothing today lets a non-image
-agent hand off image generation with a clean, self-contained request before
-a bundle is packed.
+**Status: implemented.** This section specifies the fix for the gap found
+auditing this architecture: nothing let a non-image agent hand off image
+generation with a clean, self-contained request before a bundle is packed.
 
-**What already exists.**
+**The gap that existed.**
 [`generate-storyboard-prompts.mjs`](../scripts/generate-storyboard-prompts.mjs)
-already computes exactly the right shape of request — a fully-rendered
+already computed exactly the right shape of request — a fully-rendered
 `imagePrompt` per shot (identity constraints, action, camera, and continuity
 all baked in from the manifest, no manual reconstruction needed) plus a
-`suggestedReference` output path — and reads its instruction text from
-[`02-producer-generate-reference-images.md`](../scripts/prompts/02-producer-generate-reference-images.md),
-per assumption 4. But it only runs against an already-*packed* `.msb`
+`suggestedReference` output path — reading its instruction text from
+[`03-producer-generate-reference-images.md`](../scripts/prompts/03-producer-generate-reference-images.md),
+per assumption 4. But it only ran against an already-_packed_ `.msb`
 (`loadMsb` → `readArchive`), and `pack` refuses to run until those same
-images already exist (assumption 3). That's the chicken-and-egg gap: the one
-tool that hands out a clean image request can't run until the images it
-would request already exist.
+images already exist (assumption 3). That was the chicken-and-egg gap: the
+one tool that hands out a clean image request couldn't run until the images
+it would request already existed.
 
-**The fix.** Let the same script's `<source>` argument be either a packed
-`.msb` (today's behavior, unchanged) or a directory containing `msb.json`
-(new). In directory mode:
+**The fix.** The same script's `<source>` argument accepts either a packed
+`.msb` (unchanged) or a directory containing `msb.json`. In directory mode
+it:
 
-- Read and validate `msb.json` directly with `msbManifestSchema` and
+- Reads and validates `msb.json` directly with `msbManifestSchema` and
   `validateManifestSemantics` ([`src/schema.ts`](../src/schema.ts),
-  [`src/render.ts`](../src/render.ts) — both already exported), skipping the
-  archive read.
-- Enumerate every path `referencedAssets(manifest)` returns
-  ([`src/render.ts`](../src/render.ts) — already covers screenplay,
-  character/location/prop `reference`, and every shot's
-  `composition`/`identity`/`endFrame`) and `fs.stat` each one relative to the
-  directory instead of looking it up in an archive entry map.
-- Emit one request per path, `status: "present"` or `"missing"` based on that
-  stat, instead of throwing on the first missing one the way `loadMsb` does
-  today.
-- A new `--require-complete` flag (directory mode only, distinct from
-  today's `--check` — which dedupes reused *shot* references on an
-  already-complete bundle and doesn't apply pre-pack) fails the command if
-  anything is still `"missing"`, for a Producer step to gate on before moving
-  to `pack`.
+  [`src/render.ts`](../src/render.ts)), skipping the archive read.
+- Enumerates every character/location/prop `reference` and every shot's
+  `composition`/`identity`/`endFrame`, plus the screenplay, and `fs.stat`s
+  each one relative to the directory instead of looking it up in an archive
+  entry map.
+- Emits one request per path, `status: "present"` or `"missing"` based on
+  that stat, instead of throwing on the first missing one the way `loadMsb`
+  does.
+- A `--require-complete` flag (directory mode only, distinct from `--check`
+  — which dedupes reused _shot_ references on an already-complete bundle and
+  doesn't apply pre-pack) fails the command if anything is still `"missing"`,
+  for a Producer step to gate on before moving to `pack`.
 
-**Request shape** (one entry per required image):
+**Request shape** (one entry per referenced asset):
 
 ```json
 {
@@ -178,23 +176,28 @@ would request already exist.
   "role": "composition",
   "outputPath": "references/storyboard/scene-001-shot-002a.png",
   "status": "missing",
-  "prompt": "<02's body, verbatim, plus the rendered entity/action/camera/continuity block — same construction generate-storyboard-prompts.mjs already does for shots today>",
+  "prompt": "<03's body, verbatim, plus the rendered entity/action/camera/continuity block — same construction generate-storyboard-prompts.mjs already does for shots in packed mode>",
   "promptHash": "<sha256 of prompt>",
-  "identityAnchors": ["characters/agent-86.png", "characters/agent-99.png", "characters/agent-13.png", "locations/ai-control-center.png"]
+  "identityAnchors": [
+    "characters/agent-86.png",
+    "characters/agent-99.png",
+    "characters/agent-13.png",
+    "locations/ai-control-center.png"
+  ]
 }
 ```
 
 `role` is one of `character-reference` / `location-reference` /
-`prop-reference` (entity identity sheets) or `composition` / `identity` /
-`endFrame` (shot references, matching
-[`ReferenceRole`](../src/render.ts)). **Known gap:** only shot-composition
-requests have a written instruction template today
-([`02-producer-generate-reference-images.md`](../scripts/prompts/02-producer-generate-reference-images.md)).
-Entity identity-sheet requests (character/location/prop) need an analogous
-template — same identity-preservation rules, different framing (isolated
-subject, neutral backdrop, no shot-specific action) — that doesn't exist yet.
-Write it as its own numbered-adjacent prompt file when this is implemented;
-don't invent its text here.
+`prop-reference` (entity identity sheets, using
+[`02-producer-generate-entity-references.md`](../scripts/prompts/02-producer-generate-entity-references.md))
+or `composition` / `identity` / `endFrame` (shot references, matching
+[`ReferenceRole`](../src/render.ts), using
+[`03-producer-generate-reference-images.md`](../scripts/prompts/03-producer-generate-reference-images.md)),
+or `screenplay` for the one entry that isn't a generatable image — it carries
+no `prompt`/`promptHash`/`identityAnchors`, since authoring it is still the
+Author's own job (step 1), not something to hand off through this contract.
+Entity-reference requests carry an empty `identityAnchors`: they are
+themselves the identity anchor, not something anchored to another image.
 
 **Response.** The image-generating agent writes a file at
 `<source-directory>/<outputPath>` in one of the accepted raster types
@@ -204,16 +207,16 @@ response; nothing else is read or expected.
 
 ## Artifact lifecycle and file layout
 
-| Artifact | Produced by | Consumed by | Lives in | Mutability |
-|---|---|---|---|---|
-| Screenplay + shot list (`screenplay.md`, `msb.json` draft) | Author | Producer, review steps | Source folder | Mutable until packed |
-| Entity/shot reference images (`characters/*.png`, `locations/*.png`, `references/**/*.png`) | Image-generating agent, via the contract above | Author (review), `msb pack` | Source folder | Replaceable at the same `outputPath` until packed; a rejection just means the file gets overwritten |
-| Reference-image request plan | Script, from the raw manifest | Whichever agent fulfills a request | Anywhere (ephemeral) | Fully regenerable; never hand-edited, never worth committing |
-| Packed bundle (`*.msb`) | Producer, `msb pack` | `validate`/`storyboard`/`render` | `build/`, or an explicit `--out` — **never inside a tracked source folder** (assumption 5) | Immutable |
-| Storyboard (`*.msbo`, `kind: storyboard`) | Producer, `msb storyboard` | Author (review), `msb approve` | `build/` | Immutable; superseded by re-running, not edited |
-| Approval record | Author, `msb approve` | Audit trail only — `msb render` does not check it | Embedded in-place in the storyboard `.msbo`'s `storyboard.approval` field | Immutable, hash-bound to the exact source |
-| Rendered bundle (`*.msbo`, `kind: render`) | Producer, `msb render` | `msb export` | `build/` | Immutable; resumable/cached per shot |
-| Exported movie (`*.mp4`) | Producer, `msb export` | End viewer | `build/`, or wherever delivered | Immutable |
+| Artifact                                                                                    | Produced by                                    | Consumed by                                       | Lives in                                                                                   | Mutability                                                                                          |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Screenplay + shot list (`screenplay.md`, `msb.json` draft)                                  | Author                                         | Producer, review steps                            | Source folder                                                                              | Mutable until packed                                                                                |
+| Entity/shot reference images (`characters/*.png`, `locations/*.png`, `references/**/*.png`) | Image-generating agent, via the contract above | Author (review), `msb pack`                       | Source folder                                                                              | Replaceable at the same `outputPath` until packed; a rejection just means the file gets overwritten |
+| Reference-image request plan                                                                | Script, from the raw manifest                  | Whichever agent fulfills a request                | Anywhere (ephemeral)                                                                       | Fully regenerable; never hand-edited, never worth committing                                        |
+| Packed bundle (`*.msb`)                                                                     | Producer, `msb pack`                           | `validate`/`storyboard`/`render`                  | `build/`, or an explicit `--out` — **never inside a tracked source folder** (assumption 5) | Immutable                                                                                           |
+| Storyboard (`*.msbo`, `kind: storyboard`)                                                   | Producer, `msb storyboard`                     | Author (review), `msb approve`                    | `build/`                                                                                   | Immutable; superseded by re-running, not edited                                                     |
+| Approval record                                                                             | Author, `msb approve`                          | Audit trail only — `msb render` does not check it | Embedded in-place in the storyboard `.msbo`'s `storyboard.approval` field                  | Immutable, hash-bound to the exact source                                                           |
+| Rendered bundle (`*.msbo`, `kind: render`)                                                  | Producer, `msb render`                         | `msb export`                                      | `build/`                                                                                   | Immutable; resumable/cached per shot                                                                |
+| Exported movie (`*.mp4`)                                                                    | Producer, `msb export`                         | End viewer                                        | `build/`, or wherever delivered                                                            | Immutable                                                                                           |
 
 The `examples/` fixtures in this repo are the one place this table's
 "source folder" row and "never inside a tracked source folder" rule can be
@@ -238,13 +241,13 @@ files on disk.
 
 ## Status summary
 
-| Piece | Status |
-|---|---|
-| Numbered prompts, two-role dispatch, loop-back protocol | Implemented ([`scripts/prompts/`](../scripts/prompts/README.md)) |
-| Shot-composition request generation, post-pack | Implemented (`generate-storyboard-prompts.mjs` against a packed `.msb`) |
-| Shot-composition request generation, pre-pack (directory mode, `--require-complete`) | Proposed |
-| Entity identity-sheet request generation (character/location/prop) | Proposed; template text not yet written |
-| `build/`-only output enforcement in pack/render/export prompt steps | Proposed |
+| Piece                                                                                | Status                                                                                                                    |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| Numbered prompts, two-role dispatch, loop-back protocol                              | Implemented ([`scripts/prompts/`](../scripts/prompts/README.md))                                                          |
+| Shot-composition request generation, post-pack                                       | Implemented (`generate-storyboard-prompts.mjs` against a packed `.msb`)                                                   |
+| Shot-composition request generation, pre-pack (directory mode, `--require-complete`) | Implemented (`generate-storyboard-prompts.mjs` against a source directory)                                                |
+| Entity identity-sheet request generation (character/location/prop)                   | Implemented ([`02-producer-generate-entity-references.md`](../scripts/prompts/02-producer-generate-entity-references.md)) |
+| `build/`-only output enforcement in pack/render/export prompt steps                  | Implemented (`scripts/prompts/06`, `07`, `09`–`11`, `13`)                                                                 |
 
 ## Audit checklist
 

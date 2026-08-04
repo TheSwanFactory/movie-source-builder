@@ -1,5 +1,5 @@
 ---
-step: 10
+step: 11
 role: producer
 ---
 
@@ -8,7 +8,7 @@ role: producer
 Run:
 
 ```bash
-msb render movie.msb --config <engine.msbc> --out movie.msbo --max-cost <usd>
+msb render build/movie.msb --config <engine.msbc> --out build/movie.msbo --max-cost <usd>
 ```
 
 Set `--max-cost` to the dry-run estimate plus a small margin.

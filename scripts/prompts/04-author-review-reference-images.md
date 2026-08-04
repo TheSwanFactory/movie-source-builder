@@ -1,13 +1,21 @@
 ---
-step: 3
+step: 4
 role: author
 ---
 
 # Review the reference images
 
-For each shot, compare the Producer's generated reference image(s) against
-your own screenplay: cast present, location, action, camera direction, and
-continuity notes.
+First review each entity identity sheet (character/location/prop) generated
+in the previous step against its screenplay description: colors, badges,
+labels, wardrobe, scale, and layout must match exactly, with no other entity
+or scene action visible. Reject and send back any sheet that adds, removes,
+merges, redesigns, or renames the entity — everything downstream cites this
+sheet as its identity anchor, so an error here propagates to every shot that
+uses it.
+
+Then, for each shot, compare the Producer's generated composition/identity
+image(s) against your own screenplay: cast present, location, action, camera
+direction, and continuity notes.
 
 Check identity first: colors, badges, labels, wardrobe, scale, screen
 position, and location layout must match what you specified — reject and

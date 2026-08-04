@@ -1,5 +1,5 @@
 ---
-step: 9
+step: 10
 role: author
 ---
 
@@ -8,7 +8,7 @@ role: author
 Run:
 
 ```bash
-msb approve storyboard.msbo --source movie.msb
+msb approve build/storyboard.msbo --source build/movie.msb
 ```
 
 This records sign-off, hash-bound to the exact source — not an enforced gate (`msb render` doesn't check it). Treat it as your explicit go/no-go checkpoint before real spend.

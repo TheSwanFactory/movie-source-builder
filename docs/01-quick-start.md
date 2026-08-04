@@ -9,47 +9,58 @@ Two roles, either of which can be a human or an AI:
 
 1. **Author** writes the script: screenplay, characters, shot list, in
    whatever raw form is natural.
-2. **Producer** generates or sources the reference images each shot's
-   renderer mode will need — one isolated, neutral-backdrop image per
-   character/location, plus one ensemble composition per `image-to-video`
-   shot (or identity sheets for `reference-to-video`).
-3. **Author** reviews those reference images: identity (nothing added,
-   removed, or redesigned) and whether a single still can honestly represent
-   the shot's action. A shot with more than one beat that matters gets split
-   into several sequential shots instead of asking one image to imply motion
-   it can't show — which sends the affected shots back to step 2 for their
-   own reference images before this review runs again.
-4. **Producer** opts any shot into chaining (`chainFrom: <earlier-shot-id>`,
+2. **Producer** generates or sources one isolated, neutral-backdrop identity
+   sheet per character/location/prop — no ensemble, no scene action.
+3. **Producer** generates or sources the shot reference images each shot's
+   renderer mode will need, citing those identity sheets as constraints: one
+   ensemble composition per `image-to-video` shot, or identity sheets for
+   `reference-to-video`.
+4. **Author** reviews those reference images — both the entity identity
+   sheets and the shot images — for identity (nothing added, removed, or
+   redesigned) and, for shots, whether a single still can honestly represent
+   the action. A shot with more than one beat that matters gets split into
+   several sequential shots instead of asking one image to imply motion it
+   can't show — which sends the affected shots back to step 3 for their own
+   reference images before this review runs again.
+5. **Producer** opts any shot into chaining (`chainFrom: <earlier-shot-id>`,
    `image-to-video` only) now, before packing — including shots the Author
    just split off an earlier one. See
    [Reference: shot chaining](#reference-shot-chaining) for what chaining
    verifies at render time.
-5. **Producer** packs the bundle: structures the folder, references the
-   generated images, and runs `msb pack <folder> --out movie.msb`.
-6. **Author** reviews look-and-feel on the zero-cost local storyboard, before
-   anything paid happens: `msb storyboard movie.msb --out storyboard.msbo`,
-   then `msb inspect storyboard.msbo` and watch the review MP4.
-7. **Producer** optionally generates temporary AI timing narration for that
+6. **Producer** packs the bundle: structures the folder, references the
+   generated images, and runs `msb pack <folder> --out build/movie.msb`.
+7. **Author** reviews look-and-feel on the zero-cost local storyboard, before
+   anything paid happens: `msb storyboard build/movie.msb --out
+build/storyboard.msbo`, then `msb inspect build/storyboard.msbo` and watch
+   the review MP4.
+8. **Producer** optionally generates temporary AI timing narration for that
    review, instead of `--timing-voices`' local macOS speech.
-8. **Producer** validates and prices the plan: `msb validate movie.msb
---config <engine.msbc>`, `msb render movie.msb --config <engine.msbc>
---dry-run`.
-9. **Author** records sign-off on the reviewed storyboard, hash-bound to the
-   exact source: `msb approve storyboard.msbo --source movie.msb`. This is a
-   durable record for later audit, not an enforced gate — `msb render` does
-   not check it, and nothing today stops a producer from rendering without
-   ever running `storyboard` or `approve` at all.
-10. **Producer** renders within a cost cap: `msb render movie.msb --config
-<engine.msbc> --out movie.msbo --max-cost 2.00`. As a chained shot renders,
-its predecessor's last frame is tested against its own authored composition
-— a close match promotes the real frame as the actual render input, a miss
-fails the shot rather than silently rendering from the stale still.
-11. **Author** reviews the finished cut against intent.
-12. **Producer** exports the deliverable: `msb export movie.msbo --out movie.mp4`.
+9. **Producer** validates and prices the plan: `msb validate
+build/movie.msb --config <engine.msbc>`, `msb render build/movie.msb --config
+<engine.msbc> --dry-run`.
+10. **Author** records sign-off on the reviewed storyboard, hash-bound to the
+    exact source: `msb approve build/storyboard.msbo --source
+build/movie.msb`. This is a durable record for later audit, not an enforced
+    gate — `msb render` does not check it, and nothing today stops a producer
+    from rendering without ever running `storyboard` or `approve` at all.
+11. **Producer** renders within a cost cap: `msb render build/movie.msb
+--config <engine.msbc> --out build/movie.msbo --max-cost 2.00`. As a chained
+    shot renders, its predecessor's last frame is tested against its own
+    authored composition — a close match promotes the real frame as the actual
+    render input, a miss fails the shot rather than silently rendering from the
+    stale still.
+12. **Author** reviews the finished cut against intent.
+13. **Producer** exports the deliverable: `msb export build/movie.msbo --out
+build/movie.mp4`.
 
 That's the whole loop. `msb make <bundle.msb> --config <engine.msbc>`
 collapses the render and export steps into one command. Everything below is
 reference for when a step above needs more than the one-line version.
+
+Every artifact path above is rooted under the gitignored `build/` tree,
+never inside a tracked source folder — see
+[Prompt architecture](03-prompt-architecture.md) for why that boundary
+matters.
 
 Ready-to-use prompts for each numbered step above, tagged Author/Producer, are
 the numbered files in [`scripts/prompts/`](../scripts/prompts/README.md) —
@@ -82,9 +93,9 @@ source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder
 - `.mp4` is a repeatable delivery export; export never calls an AI provider.
 
 Review progresses through checkpoints, each one before spending more:
-`storyboard → previz → render → export`. `storyboard` (step 6 above) is
+`storyboard → previz → render → export`. `storyboard` (step 7 above) is
 implemented today, and chaining a shot's render to its predecessor's actual
-output (step 4 above) is too. `previz` — generating a shot's keyframe with AI
+output (step 5 above) is too. `previz` — generating a shot's keyframe with AI
 rather than authoring it, then verifying against that instead — is
 **proposed, not implemented**; see
 [Contributing](CONTRIBUTING.md#shot-chaining-11).
@@ -222,23 +233,33 @@ beyond Tier A. In the meantime:
 
 ## Reference: storyboard
 
-`msb storyboard movie.msb --out storyboard.msbo` validates the complete bundle
-and produces one SVG panel per shot, silent timing-audio tracks, an SVG
-contact sheet, and a review MP4 via the bundled FFmpeg — zero network
-requests. Supplied shot references are displayed as-is; **no replacement
-imagery is generated at this stage**. Add `--timing-voices` (macOS) for
-disposable system-synthesized speech at each dialogue/narration time — a
-timing aid only, never production audio.
+`msb storyboard build/movie.msb --out build/storyboard.msbo` validates the
+complete bundle and produces one SVG panel per shot, silent timing-audio
+tracks, an SVG contact sheet, and a review MP4 via the bundled FFmpeg — zero
+network requests. Supplied shot references are displayed as-is; **no
+replacement imagery is generated at this stage**. Add `--timing-voices`
+(macOS) for disposable system-synthesized speech at each dialogue/narration
+time — a timing aid only, never production audio.
 
-`msb approve storyboard.msbo --source movie.msb` binds approval to the exact
-source and generated artifacts; it fails clearly if any byte of the source —
-screenplay, dialogue, ordering, timing, references, action, camera, or
-continuity — has changed since.
+`msb approve build/storyboard.msbo --source build/movie.msb` binds approval
+to the exact source and generated artifacts; it fails clearly if any byte of
+the source — screenplay, dialogue, ordering, timing, references, action,
+camera, or continuity — has changed since.
 
-`npm run storyboard:prompts -- movie.msb --out storyboard-prompts.json`
-generates a deterministic, hashed prompt plan per shot/dialogue event; add
-`--check` to reject missing or reused shot references before storyboard or
-provider work.
+`npm run storyboard:prompts -- build/movie.msb --out storyboard-prompts.json`
+generates a deterministic, hashed prompt plan per shot/dialogue event against
+an already-packed bundle; add `--check` to reject missing or reused shot
+references before storyboard or provider work.
+
+Before packing, the same script also runs directly against a source
+directory — `npm run storyboard:prompts -- <source-dir> --out
+requests.json` — and emits one request per referenced asset (entity identity
+sheets and shot references alike), each tagged `present` or `missing`. Add
+`--require-complete` to fail the command if anything a Producer still needs
+to generate or source is missing, before running `pack` at all. See
+[Prompt architecture](03-prompt-architecture.md#the-reference-image-requestresponse-contract)
+for the request shape and the image-generating-agent contract it hands off
+to.
 
 ## Reference: shot chaining
 
@@ -302,8 +323,9 @@ render. `msb verify-auth [--config ...]` checks declared environment variables
 through the renderer adapter without submitting a generation request or
 printing credential values.
 
-`msb export movie.msbo --out movie.mp4` verifies hashes, normalizes media,
-never contacts a provider, and rejects incomplete or tampered output.
+`msb export build/movie.msbo --out build/movie.mp4` verifies hashes,
+normalizes media, never contacts a provider, and rejects incomplete or
+tampered output.
 
 Ready-to-use mock, Hailuo 02 Standard, Veo 3.1 Fast, and LTX 2.3 Fast profiles
 are documented under [`msbc/README.md`](../msbc/README.md). See

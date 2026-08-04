@@ -34,6 +34,9 @@ The package is available on npm at `https://www.npmjs.com/package/movie-source-b
   export.
 - **[Adding a provider](docs/02-adding-providers.md)** — registering a new fal
   model or a new renderer provider entirely.
+- **[Prompt architecture](docs/03-prompt-architecture.md)** — how the numbered
+  prompts, the scripts that read them, and image-generating vs.
+  non-image-generating agents are meant to interact.
 - **[Contributing](docs/CONTRIBUTING.md)** — repository layout, project
   invariants, technical decisions, development workflow, and open design work.
 - **[fal rendering setup](msbc/README.fal.md)** and **[engine configurations](msbc/README.md)**
