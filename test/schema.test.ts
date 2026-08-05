@@ -93,10 +93,10 @@ describe("schemas", () => {
 
   it("resolves default configuration inheritance", async () => {
     const defaults = await loadMsbc("msbc/default.msbc");
-    const hailuo = await loadMsbc("msbc/fal-hailuo-02-standard.msbc");
-    expect(defaults.configuration).toEqual(hailuo.configuration);
+    const ltx = await loadMsbc("msbc/fal-ltx-2.3-fast.msbc");
+    expect(defaults.configuration).toEqual(ltx.configuration);
     expect(defaults.configuration.renderer.provider).toBe("fal");
-    expect(defaults.configuration.output.height).toBe(768);
+    expect(defaults.configuration.output.height).toBe(1080);
   });
 
   it("resolves every runnable MSBC profile", async () => {
