@@ -362,9 +362,15 @@ See [#11](../../../issues/11) for the authoritative list. Status against Tier A:
       non-determinism finding it surfaced. This demonstrates the mechanism
       works, not a controlled A/B comparison against the independent-shot
       baseline's visual output.
-- [ ] A cost-capped manual paid test of bounded retry against real fal LTX
-      2.3 Fast, exercising the retry path this feature was built for (see
-      `CHANGELOG.md` once run).
+- [x] A cost-capped manual paid test of bounded retry against real fal LTX
+      2.3 Fast confirmed the retry loop, cost accounting, and warning trail
+      work end to end against live provider output ($1.80 real spend, 3
+      attempts correctly recorded). It also surfaced that this particular
+      mismatch is not provider non-determinism but a systematic per-engine
+      framing difference (scores trending down across attempts, not
+      converging) — bounded retry is the right response to genuine noise but
+      cannot fix a composition authored against a different engine's
+      rendering style. See `CHANGELOG.md` for the full account.
 
 ### Out of scope
 
