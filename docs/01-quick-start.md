@@ -316,16 +316,30 @@ include the shot, complete engine configuration, and referenced asset hashes;
 completed shots are reused across resumed renders, and state is checkpointed
 atomically after every shot.
 
-Without `--out`, output goes to a gitignored `build/<msb>-<msbc>/<timestamp>/`.
-`--config` defaults to the packaged [`msbc/default.msbc`](../msbc/default.msbc)
-(cheapest configured paid engine); use `msbc/mock.msbc` for a provider-free
-render. `msb verify-auth [--config ...]` checks declared environment variables
-through the renderer adapter without submitting a generation request or
-printing credential values.
+Without `--out`, `render`/`make` write next to the source bundle, named
+`<msb>-<msbc>.msbo`/`.mp4` — deterministic, not timestamped, so rerunning the
+same bundle against the same configuration resolves to the same path and
+picks up exactly where the last render left off, with no separate cache store
+and no need to pass `--out` or `--work-dir` yourself just to get reuse.
+Rendering the same bundle against a different `--config` gets its own file,
+since the config name is part of the default path. `--config` defaults to the
+packaged [`msbc/default.msbc`](../msbc/default.msbc) (cheapest configured paid
+engine); use `msbc/mock.msbc` for a provider-free render. `msb verify-auth
+[--config ...]` checks declared environment variables through the renderer
+adapter without submitting a generation request or printing credential
+values.
 
-`msb export build/movie.msbo --out build/movie.mp4` verifies hashes,
-normalizes media, never contacts a provider, and rejects incomplete or
-tampered output.
+`msb export build/movie.msbo` verifies hashes, normalizes media, never
+contacts a provider, and rejects incomplete or tampered output. Without
+`--out`, it writes `<msbo-basename>.mp4` next to the source `.msbo`; either
+way, an existing file at that path is left alone unless `--force` is passed.
+
+`msb storyboard build/movie.msb` defaults the same way, to
+`<msb>-storyboard.msbo` next to the source bundle. Since storyboards are
+otherwise freely regenerable, a default-path rerun silently overwrites an
+unapproved one — but never one that's already been through `msb approve`;
+that requires `--force`, so a stray rerun can't silently invalidate a
+recorded approval.
 
 Ready-to-use mock, Hailuo 02 Standard, Veo 3.1 Fast, and LTX 2.3 Fast profiles
 are documented under [`msbc/README.md`](../msbc/README.md). See
@@ -338,11 +352,11 @@ msb pack <source-dir> --out <bundle.msb>
 msb validate <bundle.msb> [--config <config.msbc>]
 msb inspect <bundle.msb|config.msbc|output.msbo> [--json]
 msb verify-auth [--config <config.msbc>] [--json]
-msb storyboard <bundle.msb> --out <storyboard.msbo> [--timing-voices]
+msb storyboard <bundle.msb> [--out <storyboard.msbo>] [--timing-voices] [--force]
 msb approve <storyboard.msbo> --source <bundle.msb>
 msb render <bundle.msb> [--config <config.msbc>] [--out <output.msbo>] [--dry-run] [--work-dir <path>]
            [--concurrency <n>] [--max-cost <usd>] [--force] [--keep-work-dir]
-msb export <output.msbo> --out <movie.mp4> [--force]
+msb export <output.msbo> [--out <movie.mp4>] [--force]
 msb make <bundle.msb> [--config <config.msbc>] [--out <movie.mp4>] [render options]
 ```
 

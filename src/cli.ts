@@ -7,7 +7,11 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 import { readArchive, writeArchiveFromDirectory } from "./archive.js";
 import { exportMovie } from "./export.js";
-import { defaultBuildPaths } from "./paths.js";
+import {
+  defaultExportPath,
+  defaultRenderPaths,
+  defaultStoryboardPath,
+} from "./paths.js";
 import {
   loadMsb,
   loadMsbc,
@@ -108,18 +112,28 @@ program
   .command("storyboard")
   .description("Create a deterministic, zero-cost local storyboard .msbo")
   .argument("<file>")
-  .requiredOption("-o, --out <file>")
+  .option(
+    "-o, --out <file>",
+    "explicit output path; defaults to a file next to the source bundle",
+  )
   .option(
     "--timing-voices",
     "use disposable macOS system voices instead of silence",
   )
+  .option("--force", "overwrite even an already-approved storyboard")
   .action(async (file, options) => {
-    if (existsSync(options.out))
-      throw new Error(`output exists: ${options.out}`);
-    await createStoryboard(file, options.out, {
+    const output = options.out ?? defaultStoryboardPath(file);
+    if (existsSync(output) && !options.force) {
+      const approval = await readStoryboardApproval(output);
+      if (approval)
+        throw new Error(
+          `output exists and is approved: ${output}; pass --force to overwrite`,
+        );
+    }
+    await createStoryboard(file, output, {
       timingVoices: options.timingVoices,
     });
-    console.log(`Wrote ${options.out}`);
+    console.log(`Wrote ${output}`);
   });
 
 program
@@ -156,7 +170,10 @@ function renderOptions(
   forceDescription = "ignore reusable output and render every shot",
 ): Command {
   return command
-    .option("-o, --out <file>", "explicit output path; defaults under ./build")
+    .option(
+      "-o, --out <file>",
+      "explicit output path; defaults to a file next to the source bundle",
+    )
     .option(
       "-c, --config <file>",
       "Movie Source Builder Configuration (.msbc); defaults to packaged default.msbc",
@@ -177,7 +194,7 @@ renderOptions(
     .argument("<file>"),
 ).action(async (file, options) => {
   const configuration = options.config ?? DEFAULT_CONFIGURATION;
-  const defaults = defaultBuildPaths(file, configuration);
+  const defaults = defaultRenderPaths(file, configuration);
   const output = options.out ?? defaults.msbo;
   const plan = await renderMovie(file, {
     output,
@@ -209,15 +226,17 @@ program
   .command("export")
   .description("Export an .msbo into an MP4 without provider calls")
   .argument("<file>")
-  .requiredOption("-o, --out <file>")
+  .option(
+    "-o, --out <file>",
+    "explicit output path; defaults to a file next to the source .msbo",
+  )
   .option("--force")
   .action(async (file, options) => {
-    if (existsSync(options.out) && !options.force)
-      throw new Error(
-        `output exists: ${options.out}; pass --force to overwrite`,
-      );
-    await exportMovie(file, options.out);
-    console.log(`Wrote ${options.out}`);
+    const output = options.out ?? defaultExportPath(file);
+    if (existsSync(output) && !options.force)
+      throw new Error(`output exists: ${output}; pass --force to overwrite`);
+    await exportMovie(file, output);
+    console.log(`Wrote ${output}`);
   });
 
 renderOptions(
@@ -228,7 +247,7 @@ renderOptions(
   "overwrite an existing MP4",
 ).action(async (file, options) => {
   const configuration = options.config ?? DEFAULT_CONFIGURATION;
-  const defaults = defaultBuildPaths(file, configuration);
+  const defaults = defaultRenderPaths(file, configuration);
   const movie = (options.out as string | undefined) ?? defaults.movie;
   const msbo = options.out
     ? movie.replace(/\.mp4$/i, "") + ".msbo"
@@ -261,6 +280,18 @@ renderOptions(
       : `Wrote ${movie} and ${msbo}`,
   );
 });
+
+async function readStoryboardApproval(file: string) {
+  try {
+    const entries = await readArchive(file);
+    const raw = entries.get("msbo.json");
+    if (!raw) return undefined;
+    const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
+    return output.storyboard?.approval;
+  } catch {
+    return undefined;
+  }
+}
 
 async function loadManifestDirectory(directory: string): Promise<void> {
   const info = await stat(directory);

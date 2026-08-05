@@ -12,17 +12,33 @@ const artifactName = (file: string, extension: string): string => {
   );
 };
 
-export function defaultBuildPaths(
+// Default outputs live next to their source, named deterministically (no
+// timestamp), so a repeated invocation with the same source/configuration
+// resolves to the same path every time — the render/export commands' own
+// "reuse a previous output at this exact path" logic is what turns that
+// stability into a checkpoint, with no separate cache store required.
+
+export function defaultRenderPaths(
   source: string,
   configuration: string,
-  now = new Date(),
-): { directory: string; msbo: string; movie: string } {
+): { msbo: string; movie: string } {
   const pair = `${artifactName(source, ".msb")}-${artifactName(configuration, ".msbc")}`;
-  const timestamp = now.toISOString().replaceAll(":", "-");
-  const directory = path.join("build", pair, timestamp);
+  const directory = path.dirname(source);
   return {
-    directory,
-    msbo: path.join(directory, "output.msbo"),
-    movie: path.join(directory, "movie.mp4"),
+    msbo: path.join(directory, `${pair}.msbo`),
+    movie: path.join(directory, `${pair}.mp4`),
   };
+}
+
+export function defaultStoryboardPath(source: string): string {
+  const directory = path.dirname(source);
+  return path.join(
+    directory,
+    `${artifactName(source, ".msb")}-storyboard.msbo`,
+  );
+}
+
+export function defaultExportPath(source: string): string {
+  const directory = path.dirname(source);
+  return path.join(directory, `${artifactName(source, ".msbo")}.mp4`);
 }

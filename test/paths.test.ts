@@ -1,23 +1,42 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultBuildPaths } from "../src/paths.js";
+import {
+  defaultExportPath,
+  defaultRenderPaths,
+  defaultStoryboardPath,
+} from "../src/paths.js";
 
-describe("default build paths", () => {
-  it("groups a source/configuration pair under a UTC timestamp", () => {
-    const paths = defaultBuildPaths(
+describe("default render paths", () => {
+  it("names a source/configuration pair adjacent to the source, with no timestamp", () => {
+    const paths = defaultRenderPaths(
       "/sources/My Movie.msb",
       "/engines/fal-veo-3.1-fast.msbc",
-      new Date("2026-07-31T23:59:58.123Z"),
-    );
-    const directory = path.join(
-      "build",
-      "My-Movie-fal-veo-3.1-fast",
-      "2026-07-31T23-59-58.123Z",
     );
     expect(paths).toEqual({
-      directory,
-      msbo: path.join(directory, "output.msbo"),
-      movie: path.join(directory, "movie.mp4"),
+      msbo: path.join("/sources", "My-Movie-fal-veo-3.1-fast.msbo"),
+      movie: path.join("/sources", "My-Movie-fal-veo-3.1-fast.mp4"),
     });
+  });
+
+  it("resolves to the same path every call, so a rerun can find its predecessor", () => {
+    const a = defaultRenderPaths("/sources/movie.msb", "/engines/mock.msbc");
+    const b = defaultRenderPaths("/sources/movie.msb", "/engines/mock.msbc");
+    expect(a).toEqual(b);
+  });
+});
+
+describe("default storyboard path", () => {
+  it("names a storyboard adjacent to the source", () => {
+    expect(defaultStoryboardPath("/sources/My Movie.msb")).toBe(
+      path.join("/sources", "My-Movie-storyboard.msbo"),
+    );
+  });
+});
+
+describe("default export path", () => {
+  it("names an MP4 adjacent to the source .msbo", () => {
+    expect(defaultExportPath("/sources/My Movie.msbo")).toBe(
+      path.join("/sources", "My-Movie.mp4"),
+    );
   });
 });
