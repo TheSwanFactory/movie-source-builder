@@ -133,20 +133,83 @@ producer-drawn; chaining doesn't wait on it.
    extracted frame is uploaded as this shot's actual composition input instead
    of the authored still (`renderFalShot`'s `compositionOverride` parameter),
    and a warning records the promotion and score.
-4. Not close enough → the shot (and the render) fails with a clear message
-   naming the shot, predecessor, and measured score. **No auto-retry or
-   prompt-tweaking is implemented** — a producer edits the predecessor (or the
-   threshold) and reruns; the existing resumable/cache-key model already makes
-   that a normal `msb render` rerun, not new machinery.
+4. Not close enough → the predecessor is re-rendered fresh (a new
+   non-deterministic draw from the provider, on the theory that the mismatch
+   may just be bad luck rather than a real authoring problem) and the check
+   retried, up to `CHAIN_DRIFT_MAX_ATTEMPTS` (currently `3`, i.e. the original
+   render plus 2 retries) total predecessor render attempts. Still not close
+   enough after that → the shot (and the render) fails with a clear message
+   naming the shot, predecessor, attempt count, and every measured score.
+   **No automatic prompt-tweaking is implemented** — retry only re-samples the
+   same prompt/inputs; a producer edits the predecessor (or its prompt) and
+   reruns for anything beyond that. See "Bounded retry on drift-check
+   failure" below for the full mechanism.
 
-The gate genuinely blocks: a failed comparison throws, which fails the shot
-through the same path any other render failure takes — there is no code path
-that logs a warning and proceeds anyway.
+The gate genuinely blocks: a comparison that still fails after retries throws,
+which fails the shot through the same path any other render failure takes —
+there is no code path that logs a warning and proceeds anyway.
+
+### Bounded retry on drift-check failure
+
+Implemented in `resolveChainedComposition` and a new `rerenderChainPredecessor`
+helper ([`src/render.ts`](../src/render.ts)); the attempt cap lives next to the
+threshold as `CHAIN_DRIFT_MAX_ATTEMPTS` ([`src/chain.ts`](../src/chain.ts)).
+Three attempts was chosen to match this feature's own history, not picked
+arbitrarily: the real paid Hailuo validation recorded below needed exactly 3
+predecessor attempts before the chain succeeded.
+
+**Retry is uniform across any link in a chain, including a predecessor that is
+itself chained** (e.g. retrying shot 2a because shot 2b's gate failed, where 2a
+is itself chained from shot 1). There is no special "nested chain" case:
+whatever starting image a shot was generated from — its own authored
+composition, or a promoted frame from its own predecessor — is already a
+fixed, resolved buffer by the time that shot finishes rendering. A
+`resolvedStartingImage` map (keyed by unit index, populated the moment each
+shot's starting image is resolved, chained or not) lets a retry reuse those
+exact bytes rather than re-deriving anything or re-walking further up the
+chain. Retrying a shot never re-checks its own predecessor's link — that
+already passed and nothing about it changes.
+
+A retry writes to a temporary path and renames into the canonical
+`shots/<id>.mp4` location only after the new render succeeds, mirroring the
+existing `atomicJson` temp-then-rename convention. This matters because a
+retried predecessor's `status` stays `"complete"` throughout the retry (it
+never flips back to `"pending"`) — atomicity has to come from the rename, not
+the status field, since another worker could otherwise read a half-written
+file mid-retry.
+
+**Cost accounting:** every retry render adds the predecessor's
+`estimatedCost` again to both `output.actualCost` and the predecessor's own
+`result.actualCost`, on top of its original one-time addition — so a
+`result.actualCost` of up to `3x` its `estimatedCost` is expected and
+informative for a retried shot, not a pricing bug. `result.estimatedCost`
+itself is untouched (still the plan-time single-attempt estimate); `--max-cost`
+remains a pre-flight check against the plan estimate only, not a live cap —
+retries can cause real spend to exceed the original estimate.
+
+**Concurrency:** whenever any shot in a manifest uses `chainFrom`, the whole
+render is forced to `concurrency = 1` regardless of the `--concurrency` flag
+(a warning records the clamp in `output.warnings` when it actually overrides a
+requested value). This is a deliberate simplification: it makes retry
+reasoning trivial by construction — no two shots ever race to retry the same
+shared predecessor — rather than adding a locking mechanism for a fan-out
+shape (one predecessor, multiple direct successors) no current example
+exercises.
+
+**If bounded retries are exhausted**, the documented next step is rerunning
+with a different engine via the existing `--config` flag — e.g.
+`msbc/fal-veo-3.1-fast.msbc`, the only other configured engine that is both
+audio-capable and image-to-video/chaining-compatible
+(`falModelCapabilities`, [`src/render.ts`](../src/render.ts)). This is a
+manual config swap, not new provider integration.
 
 **Known limitation:** the similarity check is a deterministic pixel/structural
 heuristic (SSIM), not semantic drift detection — it cannot tell "the scene
 evolved as intended" from "the scene evolved in the wrong way," only "this
-looks like that." An AI judge checking the shot's own `continuity[]`
+looks like that." Retry doesn't change this: it re-samples the same prompt
+and inputs on the theory that a low score may be non-deterministic bad luck,
+it does not make the heuristic itself any smarter or more semantic. An AI
+judge checking the shot's own `continuity[]`
 invariants (color, badge, screen position, wardrobe, scale, set layout, props)
 instead of raw pixels would be a strictly better check, but was deliberately
 deferred to avoid introducing a new paid provider dependency, credentials, and
@@ -210,7 +273,12 @@ authored change (e.g. after its cached media was corrupted, or a
 non-deterministic provider happens to produce different pixels on retry) does
 not cascade to the chained shot — by design, matching how this codebase
 already treats provider non-determinism elsewhere (cache-key equality is
-authored-identity equality, not byte equality).
+authored-identity equality, not byte equality). The bounded drift-check retry
+above is this same accepted principle now exercised _deliberately, within a
+single render_ — a retried predecessor's cache key is unchanged, so a
+grand-successor chained off the same predecessor sees no cache-key change and
+its own reuse/dry-run behavior is unaffected by how many times that
+predecessor was retried.
 
 Ordering is enforced without rewriting `renderWorker`'s dispatch loop. Rather
 than turning the shared racing `nextIndex++` counter into a full
@@ -264,17 +332,24 @@ See [#11](../../../issues/11) for the authoritative list. Status against Tier A:
       a failed comparison throws and fails the shot, it never just warns.
 - [x] Cache keys express the predecessor dependency; dry-run reports it without
       provider requests.
-- [x] Chained shots serialize against their own chain; unrelated shots still
-      parallelize under `--concurrency` (tested).
+- [x] Chained shots serialize against their own chain. **Updated:** unrelated
+      shots no longer parallelize alongside a chain — whenever any shot in a
+      manifest uses `chainFrom`, the whole render is clamped to
+      `concurrency: 1` (tested), a deliberate simplification made when bounded
+      retry was added so retry reasoning stays trivial by construction (see
+      "Bounded retry on drift-check failure" above).
 - [ ] Interrupted mid-chain renders resume without corrupt half-chained state
       — resume-from-a-completed-chain is tested; a kill partway through the
       predecessor's own attempt is not.
 - [x] Unit tests cover valid chain, unknown/self/forward-referencing
       `chainFrom`, a shot with no authored composition, chaining under
-      `reference-to-video`, cache-key cascade, and reuse/resume — no paid
-      provider calls. ("Predecessor not yet complete" is exercised implicitly
-      by every chained render; there is no separate test forcing that exact
-      window today.)
+      `reference-to-video`, cache-key cascade, reuse/resume, the concurrency
+      clamp, and bounded retry (succeed-after-retry, exhausted-retries
+      failure, and a middle-link retry reusing its cached starting image
+      without re-checking its own predecessor) — no paid provider calls.
+      ("Predecessor not yet complete" is exercised implicitly by every
+      chained render; there is no separate test forcing that exact window
+      today.)
 - [ ] Docs state plainly what is and isn't guaranteed — done for Tier A above;
       still needs the equivalent honesty once Tier B ships.
 - [x] A cost-capped manual paid test against real fal Hailuo 02 Standard
@@ -287,15 +362,21 @@ See [#11](../../../issues/11) for the authoritative list. Status against Tier A:
       non-determinism finding it surfaced. This demonstrates the mechanism
       works, not a controlled A/B comparison against the independent-shot
       baseline's visual output.
+- [ ] A cost-capped manual paid test of bounded retry against real fal LTX
+      2.3 Fast, exercising the retry path this feature was built for (see
+      `CHANGELOG.md` once run).
 
 ### Out of scope
 
 - Automatically chaining every shot without explicit opt-in.
-- Automatic prompt-tweaking/retry on a failed drift check — failure just stops
-  the render with a clear message; rerunning after a manual edit is a normal
-  `msb render`, not new machinery.
-- A CLI/config flag to bypass or tune the similarity threshold — currently a
-  fixed constant (`CHAIN_SIMILARITY_THRESHOLD` in `src/chain.ts`).
+- Automatic prompt-tweaking or AI-judged semantic retry — bounded retry only
+  re-samples the same prompt/inputs mechanically; failure after
+  `CHAIN_DRIFT_MAX_ATTEMPTS` still stops the render with a clear message, and
+  rerunning after a manual edit beyond that is a normal `msb render`, not new
+  machinery.
+- A CLI/config flag to bypass or tune the similarity threshold or the retry
+  attempt count — both remain fixed constants (`CHAIN_SIMILARITY_THRESHOLD`,
+  `CHAIN_DRIFT_MAX_ATTEMPTS` in `src/chain.ts`).
 - Claiming cross-shot continuity solved from a single successful manual test.
 - Reworking `image-to-video`/`reference-to-video` contracts unrelated to
   chaining.

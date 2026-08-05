@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Added bounded automatic retry on shot-chain drift-check failure (#11 follow-up): a miss re-renders the predecessor fresh (a new non-deterministic draw) and retries the SSIM check, up to `CHAIN_DRIFT_MAX_ATTEMPTS` (currently `3`, i.e. the original render plus 2 retries — matching the 3-attempt precedent from the 0.6.0 paid Hailuo validation below) total predecessor render attempts, before finally failing with a message naming the shot, predecessor, attempt count, and every measured score.
+- Retry works uniformly across any link in a chain, including a predecessor that is itself chained — a new `resolvedStartingImage` cache (`src/render.ts`) records each shot's resolved starting-image bytes (authored composition or promoted predecessor frame) the moment it's first resolved, so a retry reuses those exact bytes rather than re-deriving anything or re-walking further up the chain.
+- Whenever any shot in a manifest uses `chainFrom`, the whole render is now clamped to `concurrency: 1` regardless of the `--concurrency` flag (a warning records the clamp in `output.warnings`), a deliberate simplification that keeps retry reasoning simple by construction instead of adding a locking mechanism for an untested fan-out shape.
+
+### Changed
+
+- `output.actualCost` and a retried predecessor's own `result.actualCost` now grow by its `estimatedCost` on every retry attempt, not just once — a producer inspecting `msbo.json` sees real total spend on a shot including failed attempts, not just the final one. `result.estimatedCost` and `--max-cost`/plan-time pricing are unchanged.
+- Updated `docs/CONTRIBUTING.md` and `docs/01-quick-start.md` to describe bounded retry as the current behavior; automatic retry is no longer listed as out of scope (automatic prompt-tweaking and a CLI flag to tune the retry count/threshold remain out of scope).
+
+### Validation
+
+- Added `test/render-chain-retry.test.ts`: succeed-after-retry, exhausted-retries failure, a middle-link retry reusing its cached starting image without re-checking its own predecessor, and the concurrency clamp — all offline via a `@fal-ai/client` mock and synthesized solid-color ffmpeg fixtures, no paid provider calls.
+
 ## [0.6.0] - 2026-08-04
 
 ### Added

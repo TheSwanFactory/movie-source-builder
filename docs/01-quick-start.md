@@ -281,19 +281,26 @@ At render time, once `scene-001-shot-001` completes, its last frame is
 extracted and compared (via ffmpeg's SSIM filter) against
 `scene-001-shot-002`'s own authored composition. A close-enough match promotes
 the real extracted frame as the actual render input instead of the authored
-still; a miss fails the shot with a message naming the shot, predecessor, and
-measured score — it never silently falls back to the stale still. `msb render
---dry-run` reports the dependency and cache key with zero provider requests;
-`--concurrency` still parallelizes unrelated shots while a chain serializes
-against itself.
+still; a miss re-renders the predecessor fresh and retries the check, up to 3
+total predecessor attempts, before finally failing with a message naming the
+shot, predecessor, attempt count, and every measured score — it never
+silently falls back to the stale still. `msb render --dry-run` reports the
+dependency and cache key with zero provider requests. Whenever any shot in a
+manifest uses `chainFrom`, `--concurrency` is clamped to 1 for the whole
+render, not just within the chain — this keeps retry behavior simple by
+construction.
 
 This is a deterministic pixel/structural-similarity heuristic, not semantic
 drift detection — it can tell "this looks like that," not "the scene evolved
-the way it was supposed to." It only runs against real (`fal`) renders; the
-mock provider never consumes composition images at all, so chained mock shots
-wait for ordering but skip the check. There's no automatic retry: a failed
-check requires editing the predecessor (or the shot) and rerunning — the
-existing resumable/cache-key model already makes that a normal `msb render`,
+the way it was supposed to." Retry doesn't change that: it only re-samples the
+same prompt/inputs on the chance a low score was non-deterministic bad luck.
+It only runs against real (`fal`) renders; the mock provider never consumes
+composition images at all, so chained mock shots wait for ordering but skip
+the check. Once the 3 attempts are exhausted, next steps are editing the
+predecessor (or its prompt) and rerunning, or rerunning with a different
+engine via `--config` (e.g. `msbc/fal-veo-3.1-fast.msbc`, the only other
+configured engine that's both audio-capable and chaining-compatible) — the
+existing resumable/cache-key model already makes either a normal `msb render`,
 nothing special. Full design and architectural detail:
 [Contributing: shot chaining](CONTRIBUTING.md#shot-chaining-11).
 

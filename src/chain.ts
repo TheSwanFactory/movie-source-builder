@@ -6,6 +6,13 @@ import { execa } from "execa";
  */
 export const CHAIN_SIMILARITY_THRESHOLD = 0.6;
 
+/**
+ * Total render attempts (1 original + retries) for a predecessor whose
+ * successor fails the drift check, before giving up. See
+ * docs/CONTRIBUTING.md#proposed-previz--shot-chaining-11.
+ */
+export const CHAIN_DRIFT_MAX_ATTEMPTS = 3;
+
 export async function extractLastFrame(
   mediaPath: string,
   outputPngPath: string,

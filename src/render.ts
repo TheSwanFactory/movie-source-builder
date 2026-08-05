@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { readArchive, writeArchive } from "./archive.js";
 import {
+  CHAIN_DRIFT_MAX_ATTEMPTS,
   CHAIN_SIMILARITY_THRESHOLD,
   compareFrameSimilarity,
   extractLastFrame,
@@ -592,6 +593,8 @@ export async function renderMovie(
   const reusableShots = reusableShotMap(previous, previousEntries);
   await mkdir(path.join(work, "shots"), { recursive: true });
   const now = new Date().toISOString();
+  const anyChained = plan.units.some((unit) => unit.chainFrom !== undefined);
+  const concurrencyClamped = anyChained && (options.concurrency ?? 1) > 1;
   const output: MsboOutput = {
     kind: "render",
     formatVersion: "1.0.0",
@@ -612,7 +615,11 @@ export async function renderMovie(
     updatedAt: now,
     estimatedCost: plan.estimatedCost,
     actualCost: 0,
-    warnings: [],
+    warnings: concurrencyClamped
+      ? [
+          "concurrency clamped to 1: chained shots (chainFrom) require strictly sequential rendering",
+        ]
+      : [],
     shots: plan.units.map((unit) => ({
       id: unit.id,
       cacheKey: unit.cacheKey,
@@ -629,8 +636,9 @@ export async function renderMovie(
   const ffmpeg = (await import("ffmpeg-static")).default as unknown as
     string | null;
   if (!ffmpeg) throw new Error("bundled ffmpeg is unavailable");
-  const concurrency = Math.max(1, options.concurrency ?? 1);
+  const concurrency = anyChained ? 1 : Math.max(1, options.concurrency ?? 1);
   const unitIndexById = new Map(plan.units.map((unit, i) => [unit.id, i]));
+  const resolvedStartingImage = new Map<number, Buffer>();
   const CHAIN_POLL_INTERVAL_MS = 50;
   const sleep = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
@@ -668,23 +676,64 @@ export async function renderMovie(
     }
   };
 
+  // Re-renders a predecessor shot from its own cached, already-resolved
+  // starting image (never re-derived — chained or not, that image was fixed
+  // the moment the predecessor first rendered), producing a fresh
+  // non-deterministic draw from the provider. Writes to a temp path and
+  // renames into place so nothing ever reads a half-written predecessor
+  // file, since the predecessor's status stays "complete" throughout.
+  const rerenderChainPredecessor = async (
+    predecessorIndex: number,
+    attempt: number,
+  ): Promise<void> => {
+    const predecessorUnit = plan.units[predecessorIndex]!;
+    const predecessorResult = output.shots[predecessorIndex]!;
+    const startingImage = resolvedStartingImage.get(predecessorIndex);
+    if (!startingImage)
+      throw new Error(
+        `cannot retry predecessor ${predecessorUnit.id}: its original starting image was not resolved during this render (likely reused from a prior output) — rerun with --force to enable retry`,
+      );
+    const canonicalMedia = path.join(work, predecessorResult.mediaPath!);
+    const tempMedia = path.join(
+      work,
+      "shots",
+      `${predecessorUnit.id}.retry-${attempt}.mp4`,
+    );
+    const requestId = await renderFalShot(
+      plan,
+      predecessorIndex,
+      tempMedia,
+      ffmpeg,
+      startingImage,
+    );
+    const bytes = await readFile(tempMedia);
+    await rename(tempMedia, canonicalMedia);
+    Object.assign(predecessorResult, {
+      mediaHash: hash(bytes),
+      requestId,
+      actualCost: predecessorResult.actualCost + predecessorUnit.estimatedCost,
+      attempts: (predecessorResult.attempts || 1) + 1,
+      completedAt: new Date().toISOString(),
+    });
+    output.actualCost += predecessorUnit.estimatedCost;
+    output.updatedAt = new Date().toISOString();
+    await writeOutput();
+  };
+
   // Verifies the predecessor's actual rendered frame against this shot's own
   // authored composition (the "planned" keyframe); a close-enough match
   // promotes the real frame as the actual render input instead of the still.
-  // Only meaningful on the fal path — renderMockShot never consumes the
-  // composition image, so there is nothing real to verify for the mock
-  // provider (it still waits for ordering, above, but skips this check).
+  // Below threshold, the predecessor is re-rendered fresh (a new
+  // non-deterministic draw) and re-checked, up to CHAIN_DRIFT_MAX_ATTEMPTS
+  // total predecessor renders, before finally failing. Only meaningful on
+  // the fal path — renderMockShot never consumes the composition image, so
+  // there is nothing real to verify for the mock provider (it still waits
+  // for ordering, above, but skips this check).
   const resolveChainedComposition = async (
     unit: RenderPlanUnit,
     index: number,
   ): Promise<Buffer> => {
     const predecessorIndex = unitIndexById.get(unit.chainFrom!)!;
-    const predecessorResult = output.shots[predecessorIndex]!;
-    if (!predecessorResult.mediaPath)
-      throw new Error(
-        `chained shot ${unit.id}: predecessor ${unit.chainFrom} has no rendered media to chain from`,
-      );
-    const predecessorMedia = path.join(work, predecessorResult.mediaPath);
     const shot = plan.manifest.shots[index]!;
     const compositionPath = shot.references.composition!;
     const compositionBytes = plan.entries.get(compositionPath);
@@ -697,24 +746,51 @@ export async function renderMovie(
       `${unit.id}-composition${path.extname(compositionPath)}`,
     );
     await writeFile(compositionTemp, compositionBytes);
-    const extractedFrame = path.join(
-      chainDir,
-      `${unit.id}-predecessor-frame.png`,
-    );
-    await extractLastFrame(predecessorMedia, extractedFrame, ffmpeg);
-    const score = await compareFrameSimilarity(
-      extractedFrame,
-      compositionTemp,
-      ffmpeg,
-    );
-    if (score < CHAIN_SIMILARITY_THRESHOLD)
-      throw new Error(
-        `shot ${unit.id} failed its chain drift check against predecessor ${unit.chainFrom}: similarity ${score.toFixed(3)} is below threshold ${CHAIN_SIMILARITY_THRESHOLD}`,
+
+    const scores: number[] = [];
+    for (let attempt = 1; attempt <= CHAIN_DRIFT_MAX_ATTEMPTS; attempt++) {
+      if (stopped)
+        throw new Error(
+          `render stopped before predecessor ${unit.chainFrom} of chained shot ${unit.id} completed`,
+        );
+      const predecessorResult = output.shots[predecessorIndex]!;
+      if (!predecessorResult.mediaPath)
+        throw new Error(
+          `chained shot ${unit.id}: predecessor ${unit.chainFrom} has no rendered media to chain from`,
+        );
+      const predecessorMedia = path.join(work, predecessorResult.mediaPath);
+      const extractedFrame = path.join(
+        chainDir,
+        `${unit.id}-predecessor-frame-attempt${attempt}.png`,
       );
-    output.shots[index]!.warnings.push(
-      `composition promoted from predecessor ${unit.chainFrom}'s rendered frame (similarity ${score.toFixed(3)})`,
+      await extractLastFrame(predecessorMedia, extractedFrame, ffmpeg);
+      const score = await compareFrameSimilarity(
+        extractedFrame,
+        compositionTemp,
+        ffmpeg,
+      );
+      scores.push(score);
+      if (score >= CHAIN_SIMILARITY_THRESHOLD) {
+        output.shots[index]!.warnings.push(
+          attempt === 1
+            ? `composition promoted from predecessor ${unit.chainFrom}'s rendered frame (similarity ${score.toFixed(3)})`
+            : `composition promoted from predecessor ${unit.chainFrom}'s rendered frame (similarity ${score.toFixed(3)}) after ${attempt} predecessor attempts`,
+        );
+        return readFile(extractedFrame);
+      }
+      if (attempt === CHAIN_DRIFT_MAX_ATTEMPTS)
+        throw new Error(
+          `shot ${unit.id} failed its chain drift check against predecessor ${unit.chainFrom} after ${CHAIN_DRIFT_MAX_ATTEMPTS} predecessor render attempt(s) (similarities: ${scores.map((s) => s.toFixed(3)).join(", ")}), all below threshold ${CHAIN_SIMILARITY_THRESHOLD}`,
+        );
+      output.shots[predecessorIndex]!.warnings.push(
+        `re-rendered (attempt ${attempt + 1}/${CHAIN_DRIFT_MAX_ATTEMPTS}) after a downstream chain drift check for successor ${unit.id} scored ${score.toFixed(3)} (below ${CHAIN_SIMILARITY_THRESHOLD})`,
+      );
+      await writeOutput();
+      await rerenderChainPredecessor(predecessorIndex, attempt + 1);
+    }
+    throw new Error(
+      `unreachable: chain drift retry loop exited without resolving ${unit.id}`,
     );
-    return readFile(extractedFrame);
   };
 
   const renderWorker = async () => {
@@ -743,10 +819,20 @@ export async function renderMovie(
         }
         await waitForChainPredecessor(unit);
         const isFal = plan.configuration.renderer.provider === "fal";
-        const compositionOverride =
-          isFal && unit.chainFrom !== undefined
-            ? await resolveChainedComposition(unit, index)
-            : undefined;
+        let compositionOverride: Buffer | undefined;
+        if (isFal && plan.configuration.renderer.mode === "image-to-video") {
+          compositionOverride =
+            unit.chainFrom !== undefined
+              ? await resolveChainedComposition(unit, index)
+              : plan.entries.get(
+                  plan.manifest.shots[index]!.references.composition!,
+                );
+          if (compositionOverride === undefined)
+            throw new Error(
+              `referenced asset is missing: ${plan.manifest.shots[index]!.references.composition}`,
+            );
+          resolvedStartingImage.set(index, compositionOverride);
+        }
         const requestId = isFal
           ? await renderFalShot(plan, index, media, ffmpeg, compositionOverride)
           : await renderMockShot(unit, output.settings, media, ffmpeg);

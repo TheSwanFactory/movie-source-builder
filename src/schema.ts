@@ -110,7 +110,7 @@ export const msbManifestSchema = z.object({
         chainFrom: id
           .optional()
           .describe(
-            "Id of an earlier shot to chain from. The shot must still author its own references.composition (the planned keyframe) and use an image-to-video renderer mode. At render time the predecessor's last rendered frame is compared against that authored composition; a close match promotes the real frame as the actual render input, otherwise the render fails rather than silently falling back. This is a similarity heuristic, not a guarantee of continuity.",
+            "Id of an earlier shot to chain from. The shot must still author its own references.composition (the planned keyframe) and use an image-to-video renderer mode. At render time the predecessor's last rendered frame is compared against that authored composition; a close match promotes the real frame as the actual render input. A miss triggers a small bounded number of automatic predecessor re-renders (CHAIN_DRIFT_MAX_ATTEMPTS in src/chain.ts) before the render fails rather than silently falling back. This is a similarity heuristic, not a guarantee of continuity.",
           ),
       }),
     )
