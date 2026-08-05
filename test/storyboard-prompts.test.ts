@@ -25,7 +25,8 @@ describe("canonical storyboard prompt plan", () => {
     expect(plan.kind).toBe("storyboard-prompt-plan");
     expect(plan.shots.map((shot: { id: string }) => shot.id)).toEqual([
       "scene-001-shot-001",
-      "scene-001-shot-002",
+      "scene-001-shot-002a",
+      "scene-001-shot-002b",
       "scene-001-shot-003",
     ]);
     expect(
@@ -90,7 +91,7 @@ describe("reference-image request plan (pre-pack directory mode)", () => {
       );
     expect(byRole("character-reference")).toHaveLength(3);
     expect(byRole("location-reference")).toHaveLength(1);
-    expect(byRole("composition")).toHaveLength(3);
+    expect(byRole("composition")).toHaveLength(4);
     for (const request of byRole("composition"))
       expect(request.identityAnchors.length).toBeGreaterThan(0);
     await execa(process.execPath, [

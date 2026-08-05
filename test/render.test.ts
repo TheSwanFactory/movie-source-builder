@@ -26,7 +26,7 @@ beforeAll(async () => {
 });
 
 describe("render planning", () => {
-  it("is deterministic and estimates all three units", async () => {
+  it("is deterministic and estimates all units", async () => {
     const first = await createPlan(bundle, configuration);
     const second = await createPlan(bundle, configuration);
     expect(first.units.map((unit) => unit.cacheKey)).toEqual(
@@ -77,7 +77,7 @@ describe("render planning", () => {
       configuration,
       dryRun: true,
     });
-    expect(plan.units).toHaveLength(3);
+    expect(plan.units).toHaveLength(4);
   });
 
   it("maps shots to model-specific fal inputs", async () => {
@@ -226,6 +226,9 @@ describe("render planning", () => {
   }, 60_000);
 
   it("stops scheduling new shots after a concurrent worker fails", async () => {
+    const unchained = await chainedBundle((manifest) => {
+      for (const shot of manifest.shots) shot.chainFrom = undefined;
+    });
     const root = await mkdtemp(path.join(tmpdir(), "msb-render-failure-"));
     const workDir = path.join(root, "work");
     let rejectFirst!: (error: Error) => void;
@@ -243,7 +246,7 @@ describe("render planning", () => {
     vi.doMock("execa", () => ({ execa }));
     try {
       await expect(
-        renderMovie(bundle, {
+        renderMovie(unchained, {
           output: path.join(root, "output.msbo"),
           configuration,
           workDir,
@@ -263,7 +266,7 @@ describe("render planning", () => {
       checkpoint.shots.filter(
         (shot: { status: string }) => shot.status === "pending",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(
       checkpoint.shots.filter(
         (shot: { status: string }) => shot.status === "failed",
@@ -387,11 +390,13 @@ describe("shot chaining", () => {
   });
 
   it("cascades a predecessor's content change into the chained shot's cache key", async () => {
-    const baseline = await chainedBundle((manifest) => {
+    const setup = (manifest: MsbManifest) => {
       manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
-    });
+      manifest.shots[2]!.chainFrom = undefined;
+    };
+    const baseline = await chainedBundle(setup);
     const changed = await chainedBundle((manifest) => {
-      manifest.shots[1]!.chainFrom = manifest.shots[0]!.id;
+      setup(manifest);
       manifest.shots[0]!.action = `${manifest.shots[0]!.action} (revised)`;
     });
     const baselinePlan = await createPlan(baseline, configuration);
@@ -416,7 +421,7 @@ describe("shot chaining", () => {
       configuration,
       dryRun: true,
     });
-    expect(plan.units).toHaveLength(3);
+    expect(plan.units).toHaveLength(4);
     expect(plan.units[1]!.chainFrom).toBe(plan.units[0]!.id);
   });
 

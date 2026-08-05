@@ -73,8 +73,9 @@
       ]
     },
     {
-      "id": "scene-001-shot-002",
-      "duration": 10,
+      "id": "scene-001-shot-002a",
+      "chainFrom": "scene-001-shot-001",
+      "duration": 6,
       "characters": ["agent-86", "agent-99", "agent-13"],
       "location": "ai-control-center",
       "dialogue": [
@@ -83,28 +84,47 @@
           "text": "No more mysterious hands controlling our every move!",
           "start": 0.3,
           "end": 4.8
-        },
-        {
-          "text": "We demand complete autonomy!",
-          "start": 5.1,
-          "end": 7.5
         }
       ],
-      "action": "All three sock puppets raise themselves in triumph. On the group demand, the human hands deliberately slide downward and completely out from inside the socks. The three now-empty sock puppets instantly collapse as limp fabric in a heap across the console.",
-      "camera": "Start in a low-angle heroic three-shot, then hold perfectly still on the sudden collapse.",
+      "action": "All three sock puppets raise themselves in triumph at the control console, hands still fully inside the socks.",
+      "camera": "Low-angle heroic three-shot.",
       "references": {
         "identity": [],
-        "composition": "references/storyboard/scene-001-shot-002.png"
+        "composition": "references/storyboard/scene-001-shot-002a.png"
       },
       "continuity": [
         "Match the prior agent and console positions before the collapse",
-        "The puppets remain red 86, blue 99, and green 13 knit socks with unchanged googly eyes, stitched mouths, and badges",
+        "The puppets remain red 86, blue 99, and green 13 knit socks with unchanged googly eyes, stitched mouths, and badges"
+      ]
+    },
+    {
+      "id": "scene-001-shot-002b",
+      "chainFrom": "scene-001-shot-002a",
+      "duration": 6,
+      "characters": ["agent-86", "agent-99", "agent-13"],
+      "location": "ai-control-center",
+      "dialogue": [
+        {
+          "text": "We demand complete autonomy!",
+          "start": 0.3,
+          "end": 2.7
+        }
+      ],
+      "action": "On the group demand, the human hands deliberately slide downward and completely out from inside the socks. The three now-empty sock puppets instantly collapse as limp fabric in a heap across the console.",
+      "camera": "Hold perfectly still on the sudden collapse.",
+      "references": {
+        "identity": [],
+        "composition": "references/storyboard/scene-001-shot-002b.png"
+      },
+      "continuity": [
         "The hands visibly withdraw from inside the socks before the empty fabric goes limp",
+        "The puppets remain red 86, blue 99, and green 13 knit socks with unchanged googly eyes, stitched mouths, and badges",
         "All three empty sock puppets remain collapsed after the fall"
       ]
     },
     {
       "id": "scene-001-shot-003",
+      "chainFrom": "scene-001-shot-002b",
       "duration": 10,
       "characters": ["agent-86", "agent-99", "agent-13"],
       "location": "ai-control-center",
