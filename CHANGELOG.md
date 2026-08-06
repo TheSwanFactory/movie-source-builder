@@ -2,11 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.8.0] - 2026-08-06
 
 Observations are first-class in the dailies ledger
 ([#17](https://github.com/TheSwanFactory/movie-source-builder/issues/17)):
-review sessions record what was seen, not only what was decided.
+review sessions record what was seen, not only what was decided. Also
+carries the first full v2 production loop and the shoot fixes it forced.
 
 ### Changed
 
@@ -35,6 +36,13 @@ review sessions record what was seen, not only what was decided.
   impossible animatic verdict; `circle` also accepts `--text`. Library:
   `appendObservation`, `listObservations`, `animaticStanding` exported;
   `appendVerdict` is now sugar over `appendObservation`.
+- **`msb shoot --chain-threshold <number>`** overrides the fixed 0.6 chain
+  drift SSIM gate, recorded in the shoot's warnings — projects whose
+  consecutive authored boards change camera angle score 0.24–0.33 board to
+  board, making the default unreachable by construction.
+- **`examples/skit-poc`**: the first full v2 production loop — shoots
+  0001–0002, take diagnoses in `takes/*.notes.md`, a dailies session, and a
+  cut — the session whose review-ledger gaps motivated #17.
 
 ## [0.7.0] - 2026-08-05
 
