@@ -14,8 +14,7 @@
         },
         "by": { "type": "string", "minLength": 1 }
       },
-      "required": ["id", "at", "by"],
-      "additionalProperties": false
+      "required": ["id", "at", "by"]
     },
     "verdicts": {
       "minItems": 1,
@@ -30,11 +29,9 @@
           "verdict": { "type": "string", "enum": ["circled", "rejected"] },
           "notes": { "type": "string", "minLength": 1 }
         },
-        "required": ["take", "verdict"],
-        "additionalProperties": false
+        "required": ["take", "verdict"]
       }
     }
   },
-  "required": ["formatVersion", "dailies", "verdicts"],
-  "additionalProperties": false
+  "required": ["formatVersion", "dailies", "verdicts"]
 }

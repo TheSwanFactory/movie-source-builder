@@ -38,11 +38,11 @@ export async function createProject(
   if (existing !== null) {
     if (!existing.isDirectory()) throw new Error(`not a directory: ${folder}`);
     const entries = await readdir(root);
-    if (entries.length > 0)
-      throw new Error(`folder is not empty: ${folder}`);
+    if (entries.length > 0) throw new Error(`folder is not empty: ${folder}`);
   }
   const draftInfo = await stat(draftFile).catch(() => null);
-  if (!draftInfo?.isFile()) throw new Error(`draft is not a file: ${draftFile}`);
+  if (!draftInfo?.isFile())
+    throw new Error(`draft is not a file: ${draftFile}`);
   await mkdir(root, { recursive: true });
   for (const directory of PROJECT_DIRECTORIES)
     await mkdir(path.join(root, directory), { recursive: true });

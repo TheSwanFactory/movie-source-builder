@@ -108,7 +108,9 @@ export async function planShoot(
   const project = await ingestProject(root);
   const shotlistId = await latestShotlistId(root);
   if (shotlistId === undefined)
-    throw new Error("project has no shot list; author shotlists/001.json first");
+    throw new Error(
+      "project has no shot list; author shotlists/001.json first",
+    );
   const { shotlist, shotlistHash } = await loadShotlist(root, shotlistId);
   validateShotlistSemantics(project.header, project.screenplay, shotlist);
   if (shotlist.shotlist.screenplayHash !== project.screenplayHash)
@@ -216,9 +218,7 @@ function durationMenuFindings(
 ): Finding[] {
   if (capabilities.durations === undefined) return [];
   const menu = capabilities.durations;
-  const offending = shots.filter(
-    (shot) => !menu.includes(shotDuration(shot)),
-  );
+  const offending = shots.filter((shot) => !menu.includes(shotDuration(shot)));
   if (offending.length === 0) return [];
   const engine = `${configuration.renderer.provider}/${configuration.renderer.model} ${configuration.renderer.mode}`;
   return [
@@ -301,7 +301,10 @@ export async function runShoot(
   const { plan, assets } = await planShoot(root, options);
   const configuration = plan.configuration;
 
-  if (!plan.planValid && !options.dryRun) {
+  if (!plan.planValid) {
+    // A failed plan costs nothing and needs no credentials — it is recorded
+    // as a real shoot (zero takes, structured findings) unless dry-running.
+    if (options.dryRun) return { plan };
     const { file } = await appendShoot(root, plan, {
       status: "failed",
       reused: [],
@@ -345,16 +348,13 @@ export async function runShoot(
     );
 
   const ffmpeg = (await import("ffmpeg-static")).default as unknown as
-    | string
-    | null;
+    string | null;
   if (!ffmpeg) throw new Error("bundled ffmpeg is unavailable");
   await mkdir(resolveInside(root, "takes"), { recursive: true });
   const scratch = await mkdtemp(path.join(tmpdir(), "msb-shoot-"));
 
   const anyChained = plan.units.some((unit) => unit.chainFrom !== undefined);
-  const concurrency = anyChained
-    ? 1
-    : Math.max(1, options.concurrency ?? 1);
+  const concurrency = anyChained ? 1 : Math.max(1, options.concurrency ?? 1);
   const warnings =
     anyChained && (options.concurrency ?? 1) > 1
       ? [
@@ -393,9 +393,9 @@ export async function runShoot(
   const renderTakeMedia = async (
     unitIndex: number,
     startingImage: Buffer | undefined,
+    takeId: string,
   ): Promise<ShootTake> => {
     const unit = plan.units[unitIndex]!;
-    const takeId = allocateTake(unit.shot.id);
     const media = `takes/${takeId}.mp4`;
     const lastFrame = `takes/${takeId}.last.png`;
     const mediaAbsolute = resolveInside(root, media);
@@ -520,7 +520,11 @@ export async function runShoot(
         throw new Error(
           `cannot retry predecessor ${unit.chainFrom}: its starting image was not resolved during this shoot (its take was reused from an earlier shoot) — rerun with --fresh to enable retry`,
         );
-      const retryTake = await renderTakeMedia(predecessorIndex, startingImage);
+      const retryTake = await renderTakeMedia(
+        predecessorIndex,
+        startingImage,
+        allocateTake(unit.chainFrom!),
+      );
       retryTake.warnings.push(
         `chain retry (attempt ${attempt + 1}/${CHAIN_DRIFT_MAX_ATTEMPTS}): downstream drift check for successor ${unit.shot.id} scored ${score.toFixed(3)} (below ${CHAIN_SIMILARITY_THRESHOLD})`,
       );
@@ -541,6 +545,7 @@ export async function runShoot(
       if (index >= plan.units.length) return;
       const unit = plan.units[index]!;
       const state = states[index]!;
+      let allocated: string | undefined;
       try {
         if (unit.reuse) {
           reusedLinks.push({
@@ -555,7 +560,12 @@ export async function runShoot(
             root,
             `takes/${unit.reuse.take}.last.png`,
           );
-          if (await readFile(poolLastFrame).then(() => true, () => false))
+          if (
+            await readFile(poolLastFrame).then(
+              () => true,
+              () => false,
+            )
+          )
             state.lastFrame = poolLastFrame;
           state.status = "complete";
           continue;
@@ -577,7 +587,8 @@ export async function runShoot(
           }
           state.startingImage = startingImage;
         }
-        const take = await renderTakeMedia(index, startingImage);
+        allocated = allocateTake(unit.shot.id);
+        const take = await renderTakeMedia(index, startingImage, allocated);
         if (chainScore !== undefined) {
           take.chainScore = chainScore;
           take.warnings.push(
@@ -594,7 +605,7 @@ export async function runShoot(
         state.status = "failed";
         takeEntries.push({
           shot: unit.shot.id,
-          take: allocateTake(unit.shot.id),
+          take: allocated ?? allocateTake(unit.shot.id),
           status: "failed",
           cacheKey: unit.cacheKey,
           cost: 0,

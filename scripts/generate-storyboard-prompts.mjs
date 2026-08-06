@@ -1,15 +1,24 @@
 #!/usr/bin/env node
+// Emits the reference-image request plan for a v2 project folder: one
+// request per cast model sheet and per shot-list reference image, each
+// embedding the canonical prompt templates verbatim (hashed for
+// provenance). The request/response contract is described in
+// docs/03-prompt-architecture.md.
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import {
-  loadMsb,
-  shotReferencePaths,
-  validateManifestSemantics,
-} from "../dist/render.js";
-import { msbManifestSchema } from "../dist/schema.js";
+  cuesInSpan,
+  flattenShots,
+  loadHeader,
+  loadScreenplay,
+  loadShotlist,
+  latestShotlistId,
+  validateScreenplaySemantics,
+} from "../dist/project.js";
+import { shotReferencePaths } from "../dist/render.js";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const stripFrontmatter = (text) =>
@@ -22,9 +31,11 @@ const option = (name) => {
 };
 if (!source) {
   throw new Error(
-    "usage: node scripts/generate-storyboard-prompts.mjs <bundle.msb|source-dir> [--out prompts.json] [--check] [--require-complete]",
+    "usage: node scripts/generate-storyboard-prompts.mjs <project-folder> [--out plan.json] [--require-complete]",
   );
 }
+if (!(await stat(source)).isDirectory())
+  throw new Error(`not a project folder: ${source}`);
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const entityTemplate = stripFrontmatter(
@@ -39,187 +50,80 @@ const imageTemplate = stripFrontmatter(
     "utf8",
   ),
 );
-const audioTemplate = stripFrontmatter(
-  await readFile(
-    path.join(root, "prompts/08-producer-generate-timing-audio.md"),
-    "utf8",
-  ),
-);
 
-const sourceIsDirectory = (await stat(source)).isDirectory();
-if (args.includes("--require-complete") && !sourceIsDirectory)
-  throw new Error(
-    "--require-complete only applies to a source directory, not a packed .msb",
-  );
-if (args.includes("--check") && sourceIsDirectory)
-  throw new Error(
-    "--check only applies to a packed .msb, not a source directory",
-  );
+const header = await loadHeader(source);
+const { screenplay } = await loadScreenplay(source);
+validateScreenplaySemantics(header, screenplay);
+const cast = new Map(header.cast.map((member) => [member.id, member]));
 
-function entityBlock(shot, characters, locations, props) {
-  return [
-    ...shot.characters.map((id) => {
-      const character = characters.get(id);
-      return `CHARACTER ${id}: ${character?.name ?? id}. ${character?.description ?? "MISSING DESCRIPTION"}. Identity reference: ${character?.reference ?? "MISSING"}`;
-    }),
-    ...(shot.location
-      ? [
-          `LOCATION ${shot.location}: ${locations.get(shot.location)?.description ?? "MISSING DESCRIPTION"}. Identity reference: ${locations.get(shot.location)?.reference ?? "MISSING"}`,
-        ]
-      : []),
-    ...props.map(
-      (prop) =>
-        `PROP ${prop.id}: ${prop.description}. Identity reference: ${prop.reference ?? "none"}`,
-    ),
-  ].join("\n");
-}
+const statusOf = async (relativePath) => {
+  const info = await stat(path.join(source, relativePath)).catch(() => null);
+  return info?.isFile() ? "present" : "missing";
+};
 
-async function buildStoryboardPromptPlan(file) {
-  const loaded = await loadMsb(file);
-  const characters = new Map(
-    loaded.manifest.characters.map((item) => [item.id, item]),
-  );
-  const locations = new Map(
-    loaded.manifest.locations.map((item) => [item.id, item]),
-  );
-  const seenReferences = new Map();
-  const warnings = [];
+const requests = [];
+const warnings = [];
 
-  const shots = loaded.manifest.shots.map((shot, index) => {
-    const references = shotReferencePaths(shot);
-    if (references.length === 0)
-      warnings.push(`${shot.id}: no explicit shot reference`);
-    for (const reference of references) {
-      const prior = seenReferences.get(reference);
-      if (prior)
-        warnings.push(
-          `${shot.id}: reuses ${reference} from ${prior}; create a shot-specific visual-state reference`,
-        );
-      else seenReferences.set(reference, shot.id);
-    }
-    const block = entityBlock(
-      shot,
-      characters,
-      locations,
-      loaded.manifest.props,
-    );
-    const imagePrompt = `${imageTemplate}\n\nPROJECT: ${loaded.manifest.project.title}\nSHOT: ${shot.id} (${index + 1}/${loaded.manifest.shots.length})\nDURATION: ${shot.duration}s\n\nIDENTITY CONSTRAINTS\n${block || "No listed entities."}\n\nSHOT ACTION\n${shot.action}\n\nCAMERA\n${shot.camera}\n\nCONTINUITY\n${shot.continuity.map((item) => `- ${item}`).join("\n") || "- none"}\n\nCURRENT SHOT REFERENCES\n${references.map((item) => `- ${item}`).join("\n") || "- none"}\n`;
-    const audio = [
-      ...shot.dialogue.map((line) => ({
-        type: "dialogue",
-        character: line.character,
-        text: line.text,
-        start: line.start,
-        end: line.end,
-      })),
-      ...(shot.narration
-        ? [
-            {
-              type: "narration",
-              text: shot.narration,
-              start: 0,
-              end: shot.duration,
-            },
-          ]
-        : []),
-    ].map((event) => {
-      const prompt = `${audioTemplate}\n\nSHOT: ${shot.id}\nTYPE: ${event.type}\nSPEAKER: ${event.character ?? "narrator/ensemble"}\nWINDOW: ${event.start}s–${event.end}s\nTEXT: ${event.text}\n`;
-      return { ...event, prompt, promptHash: hash(prompt) };
-    });
-    return {
-      id: shot.id,
-      suggestedReference: `references/storyboard/${shot.id}.png`,
-      currentReferences: references,
-      imagePrompt,
-      imagePromptHash: hash(imagePrompt),
-      audio,
-    };
+for (const member of header.cast) {
+  if (!member.modelSheet) {
+    if (member.needsModelSheet)
+      warnings.push(`${member.id}: cast member has no model sheet path yet`);
+    continue;
+  }
+  const prompt = `${entityTemplate}\n\nENTITY: ${member.id}\nKIND: ${member.kind}\nDESCRIPTION: ${member.description}\n`;
+  requests.push({
+    id: member.id,
+    role: "model-sheet",
+    outputPath: member.modelSheet,
+    status: await statusOf(member.modelSheet),
+    prompt,
+    promptHash: hash(prompt),
+    identityAnchors: [],
   });
-
-  if (args.includes("--check") && warnings.length > 0)
-    throw new Error(
-      `storyboard prompt-plan validation failed:\n${warnings.join("\n")}`,
-    );
-
-  return {
-    formatVersion: "1.0.0",
-    kind: "storyboard-prompt-plan",
-    sourceHash: loaded.sourceHash,
-    templates: {
-      image: {
-        path: "scripts/prompts/03-producer-generate-reference-images.md",
-        hash: hash(imageTemplate),
-      },
-      audio: {
-        path: "scripts/prompts/08-producer-generate-timing-audio.md",
-        hash: hash(audioTemplate),
-      },
-    },
-    warnings,
-    shots,
-  };
 }
 
-async function buildRequestPlan(directory) {
-  const raw = await readFile(path.join(directory, "msb.json"), "utf8");
-  const manifest = msbManifestSchema.parse(JSON.parse(raw));
-  validateManifestSemantics(manifest);
-  const characters = new Map(
-    manifest.characters.map((item) => [item.id, item]),
-  );
-  const locations = new Map(manifest.locations.map((item) => [item.id, item]));
-
-  const statusOf = async (relativePath) => {
-    const info = await stat(path.join(directory, relativePath)).catch(
-      () => null,
-    );
-    return info?.isFile() ? "present" : "missing";
-  };
-
-  const entityRequest = async (role, entity) => {
-    const prompt = `${entityTemplate}\n\nENTITY: ${entity.id}\nDESCRIPTION: ${entity.description}\n`;
-    return {
-      id: entity.id,
-      role,
-      outputPath: entity.reference,
-      status: await statusOf(entity.reference),
-      prompt,
-      promptHash: hash(prompt),
-      identityAnchors: [],
-    };
-  };
-
-  const requests = [];
-  if (manifest.screenplay)
-    requests.push({
-      id: "screenplay",
-      role: "screenplay",
-      outputPath: manifest.screenplay,
-      status: await statusOf(manifest.screenplay),
-    });
-  for (const character of manifest.characters)
-    requests.push(await entityRequest("character-reference", character));
-  for (const location of manifest.locations)
-    if (location.reference)
-      requests.push(await entityRequest("location-reference", location));
-  for (const prop of manifest.props)
-    if (prop.reference)
-      requests.push(await entityRequest("prop-reference", prop));
-
-  for (const [index, shot] of manifest.shots.entries()) {
-    const block = entityBlock(shot, characters, locations, manifest.props);
+const shotlistId = await latestShotlistId(source);
+if (shotlistId !== undefined) {
+  const { shotlist } = await loadShotlist(source, shotlistId);
+  const shots = flattenShots(shotlist);
+  const seenReferences = new Map();
+  for (const [index, shot] of shots.entries()) {
+    const lines = cuesInSpan(screenplay, shot.span);
     const identityAnchors = [
       ...shot.characters
-        .map((id) => characters.get(id)?.reference)
+        .map((id) => cast.get(id)?.modelSheet)
         .filter((value) => value !== undefined),
-      ...(shot.location && locations.get(shot.location)?.reference
-        ? [locations.get(shot.location).reference]
+      ...(shot.location && cast.get(shot.location)?.modelSheet
+        ? [cast.get(shot.location).modelSheet]
         : []),
     ];
+    const entityBlock = [
+      ...shot.characters.map((id) => {
+        const member = cast.get(id);
+        return `CHARACTER ${id}: ${member?.name ?? id}. ${member?.description ?? "MISSING DESCRIPTION"}. Model sheet: ${member?.modelSheet ?? "MISSING"}`;
+      }),
+      ...(shot.location
+        ? [
+            `LOCATION ${shot.location}: ${cast.get(shot.location)?.description ?? "MISSING DESCRIPTION"}. Model sheet: ${cast.get(shot.location)?.modelSheet ?? "MISSING"}`,
+          ]
+        : []),
+    ].join("\n");
     const shotPrompt = (role) =>
-      `${imageTemplate}\n\nPROJECT: ${manifest.project.title}\nSHOT: ${shot.id} (${index + 1}/${manifest.shots.length})\nROLE: ${role}\nDURATION: ${shot.duration}s\n\nIDENTITY CONSTRAINTS\n${block || "No listed entities."}\n\nSHOT ACTION\n${shot.action}\n\nCAMERA\n${shot.camera}\n\nCONTINUITY\n${shot.continuity.map((item) => `- ${item}`).join("\n") || "- none"}\n`;
-
+      `${imageTemplate}\n\nPROJECT: ${header.project.title}\nSHOT: ${shot.id} (${index + 1}/${shots.length})\nROLE: ${role}\nSPAN: ${shot.span[0]}s–${shot.span[1]}s on the screenplay timeline\n\nIDENTITY CONSTRAINTS\n${entityBlock || "No listed entities."}\n\nSHOT ACTION\n${shot.action}\n\nCAMERA\n${shot.camera}\n\nCONTINUITY\n${shot.continuity.map((item) => `- ${item}`).join("\n") || "- none"}\n\nCUES IN SPAN\n${
+        lines
+          .map(
+            (line) =>
+              `- ${line.start}-${line.end}s ${line.character ?? line.kind}: ${line.text}`,
+          )
+          .join("\n") || "- none"
+      }\n`;
     const shotRequest = async (role, id, outputPath) => {
+      const prior = seenReferences.get(outputPath);
+      if (prior)
+        warnings.push(
+          `${shot.id}: reuses ${outputPath} from ${prior}; create a shot-specific visual-state reference`,
+        );
+      else seenReferences.set(outputPath, shot.id);
       const prompt = shotPrompt(role);
       requests.push({
         id,
@@ -243,35 +147,34 @@ async function buildRequestPlan(directory) {
       );
     if (shot.references.endFrame)
       await shotRequest("endFrame", shot.id, shot.references.endFrame);
+    if (shotReferencePaths(shot).length === 0)
+      warnings.push(`${shot.id}: no explicit shot reference`);
   }
-
-  const missing = requests.filter((request) => request.status === "missing");
-  if (args.includes("--require-complete") && missing.length > 0)
-    throw new Error(
-      `reference-image request plan is incomplete:\n${missing.map((request) => `${request.id} (${request.role}): ${request.outputPath}`).join("\n")}`,
-    );
-
-  return {
-    formatVersion: "1.0.0",
-    kind: "reference-image-request-plan",
-    directory: path.resolve(directory),
-    templates: {
-      entity: {
-        path: "scripts/prompts/02-producer-generate-entity-references.md",
-        hash: hash(entityTemplate),
-      },
-      image: {
-        path: "scripts/prompts/03-producer-generate-reference-images.md",
-        hash: hash(imageTemplate),
-      },
-    },
-    requests,
-  };
 }
 
-const report = sourceIsDirectory
-  ? await buildRequestPlan(source)
-  : await buildStoryboardPromptPlan(source);
+const missing = requests.filter((request) => request.status === "missing");
+if (args.includes("--require-complete") && missing.length > 0)
+  throw new Error(
+    `reference-image request plan is incomplete:\n${missing.map((request) => `${request.id} (${request.role}): ${request.outputPath}`).join("\n")}`,
+  );
+
+const report = {
+  formatVersion: "2.0.0",
+  kind: "reference-image-request-plan",
+  directory: path.resolve(source),
+  templates: {
+    entity: {
+      path: "scripts/prompts/02-producer-generate-entity-references.md",
+      hash: hash(entityTemplate),
+    },
+    image: {
+      path: "scripts/prompts/03-producer-generate-reference-images.md",
+      hash: hash(imageTemplate),
+    },
+  },
+  warnings,
+  requests,
+};
 
 const output = option("--out");
 if (output) {

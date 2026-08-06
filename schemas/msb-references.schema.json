@@ -31,7 +31,6 @@
               }
             },
             "required": ["cue", "at", "screenplayHash"],
-            "additionalProperties": false,
             "description": "Boards anchor to a cue; the time and screenplay hash are captured at anchoring time (provenance, not a resolution mechanism)."
           },
           "provenance": {
@@ -41,15 +40,12 @@
               "promptHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
               "generator": { "type": "string" },
               "note": { "type": "string" }
-            },
-            "additionalProperties": false
+            }
           }
         },
-        "required": ["file", "kind", "subjects"],
-        "additionalProperties": false
+        "required": ["file", "kind"]
       }
     }
   },
-  "required": ["formatVersion", "images"],
-  "additionalProperties": false
+  "required": ["formatVersion"]
 }

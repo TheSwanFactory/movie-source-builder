@@ -19,8 +19,7 @@
           "maximum": 9007199254740991
         },
         "frameRate": { "type": "number", "exclusiveMinimum": 0 }
-      },
-      "additionalProperties": false
+      }
     },
     "renderer": {
       "type": "object",
@@ -38,8 +37,7 @@
           "type": "array",
           "items": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$" }
         }
-      },
-      "additionalProperties": false
+      }
     }
   },
   "required": ["version"],

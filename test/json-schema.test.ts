@@ -15,9 +15,24 @@ addFormats(ajv);
 describe("published JSON Schemas", () => {
   it.each([
     [
-      "MSB manifest",
-      "schemas/msb-manifest.schema.json",
-      "examples/smoke-test/msb.json",
+      "MSB header",
+      "schemas/msb-header.schema.json",
+      "examples/skit-poc/msb.json",
+    ],
+    [
+      "canonical screenplay",
+      "schemas/msb-screenplay.schema.json",
+      "examples/skit-poc/screenplay.json",
+    ],
+    [
+      "references index",
+      "schemas/msb-references.schema.json",
+      "examples/skit-poc/references/references.json",
+    ],
+    [
+      "shot list",
+      "schemas/msb-shotlist.schema.json",
+      "examples/skit-poc/shotlists/001.json",
     ],
     [
       "MSBC configuration",
@@ -32,23 +47,65 @@ describe("published JSON Schemas", () => {
     ).toBe(true);
   });
 
-  it("independently validates an MSBO output document", () => {
-    const validate = ajv.compile(readJson("schemas/msbo-output.schema.json"));
-    const timestamp = "2026-07-31T00:00:00.000Z";
-    const output = {
-      formatVersion: "1.0.0",
-      source: { hash: "source", projectId: "smoke-test", title: "Smoke test" },
-      configuration: { hash: "configuration" },
-      tool: { name: "movie-source-builder", version: "0.2.0" },
-      settings: { width: 1280, height: 720, frameRate: 24 },
-      status: "complete",
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      estimatedCost: 0,
-      actualCost: 0,
-      shots: [],
+  it("independently validates a shoot ledger document", () => {
+    const validate = ajv.compile(readJson("schemas/msb-shoot.schema.json"));
+    const shoot = {
+      formatVersion: "2.0.0",
+      shoot: {
+        id: "0001-mock",
+        createdAt: "2026-08-05T00:00:00.000Z",
+        status: "complete",
+      },
+      shotlist: { id: "001", hash: "a".repeat(64) },
+      engine: {
+        configName: "mock",
+        hash: "b".repeat(64),
+        resolved: {
+          version: "1.0.0",
+          output: {
+            aspectRatio: "16:9",
+            width: 512,
+            height: 288,
+            frameRate: 24,
+          },
+          renderer: {
+            provider: "mock",
+            model: "lavfi-color",
+            mode: "image-to-video",
+            requiredEnvironmentVariables: [],
+          },
+        },
+      },
+      tool: { name: "movie-source-builder", version: "0.7.0" },
+      costs: { estimated: 0, actual: 0 },
+      reused: [],
+      takes: [
+        {
+          shot: "shot-001",
+          take: "shot-001.t01",
+          status: "rendered",
+          cacheKey: "c".repeat(64),
+          media: "takes/shot-001.t01.mp4",
+          mediaHash: "d".repeat(64),
+          lastFrame: "takes/shot-001.t01.last.png",
+          cost: 0,
+          error: null,
+          warnings: [],
+        },
+      ],
+      findings: [],
       warnings: [],
     };
-    expect(validate(output), JSON.stringify(validate.errors)).toBe(true);
+    expect(validate(shoot), JSON.stringify(validate.errors)).toBe(true);
+  });
+
+  it("independently validates a dailies ledger document", () => {
+    const validate = ajv.compile(readJson("schemas/msb-dailies.schema.json"));
+    const dailies = {
+      formatVersion: "2.0.0",
+      dailies: { id: "0001", at: "2026-08-05T00:00:00.000Z", by: "author" },
+      verdicts: [{ take: "shot-001.t01", verdict: "circled" }],
+    };
+    expect(validate(dailies), JSON.stringify(validate.errors)).toBe(true);
   });
 });

@@ -482,7 +482,11 @@ export async function renderFalClip(
           request.prompt,
           await Promise.all(
             (request.identity ?? []).map((reference) =>
-              uploadFalBytes(fal, reference.bytes, imageMimeType(reference.name)),
+              uploadFalBytes(
+                fal,
+                reference.bytes,
+                imageMimeType(reference.name),
+              ),
             ),
           ),
         )
@@ -500,7 +504,9 @@ export async function renderFalClip(
   const response = await fal.subscribe(model, { input, logs: false });
   const data = response.data as { video?: { url?: unknown } };
   if (typeof data.video?.url !== "string")
-    throw new Error(`fal renderer returned no video for shot ${request.shotId}`);
+    throw new Error(
+      `fal renderer returned no video for shot ${request.shotId}`,
+    );
   const downloaded = await fetch(data.video.url);
   if (!downloaded.ok)
     throw new Error(

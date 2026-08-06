@@ -10,8 +10,7 @@
         "title": { "type": "string", "minLength": 1 },
         "description": { "type": "string" }
       },
-      "required": ["id", "title"],
-      "additionalProperties": false
+      "required": ["id", "title"]
     },
     "cast": {
       "default": [],
@@ -38,11 +37,9 @@
             "description": "Explicit flag that this cast member's model sheet is still owed; ingest fails a member with neither a model sheet nor this flag."
           }
         },
-        "required": ["id", "kind", "name", "description", "needsModelSheet"],
-        "additionalProperties": false
+        "required": ["id", "name", "description"]
       }
     }
   },
-  "required": ["formatVersion", "project", "cast"],
-  "additionalProperties": false
+  "required": ["formatVersion", "project"]
 }

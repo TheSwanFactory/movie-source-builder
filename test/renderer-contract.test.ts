@@ -2,47 +2,14 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { readArchive, writeArchive } from "../src/archive.js";
-import { createPlan, renderMovie } from "../src/render.js";
-import { msbManifestSchema, type MsbManifest } from "../src/schema.js";
+import { planShoot } from "../src/shoot.js";
+import { falInput, falReferenceInput } from "../src/render.js";
+import { makeProject } from "./helpers.js";
 
 const falConfiguration = path.resolve("msbc/fal-hailuo-02-standard.msbc");
 const falReferenceConfiguration = path.resolve(
   "msbc/fal-veo-3.1-fast-reference.msbc",
 );
-
-async function bundleWith(
-  base: string,
-  change: (manifest: MsbManifest, entries: Map<string, Buffer>) => void,
-): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), "msb-renderer-contract-"));
-  const entries = await readArchive(base);
-  const manifest = msbManifestSchema.parse(
-    JSON.parse(entries.get("msb.json")!.toString()),
-  );
-  change(manifest, entries);
-  entries.set("msb.json", Buffer.from(JSON.stringify(manifest)));
-  const bundle = path.join(root, "fixture.msb");
-  await writeArchive(entries, bundle);
-  return bundle;
-}
-
-const compositionBundleWith = (
-  change: (manifest: MsbManifest, entries: Map<string, Buffer>) => void,
-) => bundleWith("examples/smoke-test.msb", change);
-
-const identityBundleWith = (
-  change: (manifest: MsbManifest, entries: Map<string, Buffer>) => void,
-) => bundleWith("examples/smoke-test-reference.msb", change);
-
-function setReferences(
-  manifest: MsbManifest,
-  index: number,
-  references: Record<string, unknown>,
-): void {
-  (manifest.shots[index] as unknown as { references: unknown }).references =
-    references;
-}
 
 describe("renderer input contracts", () => {
   it("accepts the provider-ready smoke test for every image-to-video fal profile", async () => {
@@ -50,74 +17,65 @@ describe("renderer input contracts", () => {
       "msbc/fal-hailuo-02-standard.msbc",
       "msbc/fal-veo-3.1-fast.msbc",
       "msbc/fal-ltx-2.3-fast.msbc",
-    ])
-      await expect(
-        createPlan("examples/smoke-test.msb", configuration),
-      ).resolves.toMatchObject({ units: [{ duration: 6 }] });
+    ]) {
+      const { plan } = await planShoot("examples/smoke-test", {
+        configuration,
+      });
+      expect(plan.planValid).toBe(true);
+      expect(plan.units).toHaveLength(1);
+      expect(plan.units[0]!.duration).toBe(6);
+    }
   });
 
   it("accepts the provider-ready reference smoke test for Veo 3.1 Fast reference-to-video", async () => {
-    await expect(
-      createPlan(
-        "examples/smoke-test-reference.msb",
-        "msbc/fal-veo-3.1-fast-reference.msbc",
-      ),
-    ).resolves.toMatchObject({ units: [{ duration: 8 }] });
+    const { plan } = await planShoot("examples/smoke-test-reference", {
+      configuration: falReferenceConfiguration,
+    });
+    expect(plan.planValid).toBe(true);
+    expect(plan.units[0]!.duration).toBe(8);
   });
 
   it.each([
-    ["no composition reference", {}],
+    ["no composition reference", { identity: [] }],
     [
       "an identity reference instead of composition",
-      { identity: ["start.png"] },
+      { identity: ["references/hero.png"] },
     ],
   ])("rejects image-to-video shots with %s", async (_label, references) => {
-    const bundle = await compositionBundleWith((manifest) => {
-      setReferences(manifest, 0, references);
+    const root = await makeProject((fixture) => {
+      fixture.shotlist.scenes[0]!.shots[0]!.references = references as never;
     });
-    await expect(createPlan(bundle, falConfiguration)).rejects.toThrow(
+    await expect(
+      planShoot(root, { configuration: falConfiguration }),
+    ).rejects.toThrow(
       /requires between 1 and 1 composition reference|does not accept a identity reference/,
     );
   });
 
   it("rejects non-raster fal inputs during preflight", async () => {
-    const bundle = await compositionBundleWith((manifest, entries) => {
-      entries.set("reference.svg", Buffer.from("<svg></svg>"));
-      setReferences(manifest, 0, { composition: "reference.svg" });
+    const root = await makeProject((fixture) => {
+      fixture.files["references/reference.svg"] = Buffer.from("<svg></svg>");
+      fixture.shotlist.scenes[0]!.shots[0]!.references = {
+        identity: [],
+        composition: "references/reference.svg",
+      };
     });
-    await expect(createPlan(bundle, falConfiguration)).rejects.toThrow(
-      "fal reference must be PNG, JPEG, WebP, or AVIF",
-    );
+    await expect(
+      planShoot(root, { configuration: falConfiguration }),
+    ).rejects.toThrow("fal reference must be PNG, JPEG, WebP, or AVIF");
   });
 
   it("rejects raster extensions with invalid content", async () => {
-    const bundle = await compositionBundleWith((manifest, entries) => {
-      entries.set("fake.png", Buffer.from("not a png"));
-      setReferences(manifest, 0, { composition: "fake.png" });
+    const root = await makeProject((fixture) => {
+      fixture.files["references/fake.png"] = Buffer.from("not a png");
+      fixture.shotlist.scenes[0]!.shots[0]!.references = {
+        identity: [],
+        composition: "references/fake.png",
+      };
     });
-    await expect(createPlan(bundle, falConfiguration)).rejects.toThrow(
-      "is not a valid PNG, JPEG, WebP, or AVIF",
-    );
-  });
-
-  it("fails pipeline preflight before credentials or provider work", async () => {
-    const bundle = await compositionBundleWith((manifest) => {
-      setReferences(manifest, 0, {});
-    });
-    const previous = process.env.FAL_KEY;
-    delete process.env.FAL_KEY;
-    try {
-      await expect(
-        renderMovie(bundle, {
-          configuration: falConfiguration,
-          output: `${bundle}.msbo`,
-          dryRun: true,
-        }),
-      ).rejects.toThrow("requires between 1 and 1 composition reference");
-    } finally {
-      if (previous === undefined) delete process.env.FAL_KEY;
-      else process.env.FAL_KEY = previous;
-    }
+    await expect(
+      planShoot(root, { configuration: falConfiguration }),
+    ).rejects.toThrow("is not a valid PNG, JPEG, WebP, or AVIF");
   });
 
   it.each([
@@ -126,33 +84,46 @@ describe("renderer input contracts", () => {
       "more than three identity references",
       {
         identity: [
-          "identity-1.png",
-          "identity-1.png",
-          "identity-1.png",
-          "identity-1.png",
+          "references/hero.png",
+          "references/hero.png",
+          "references/hero.png",
+          "references/hero.png",
         ],
       },
     ],
     [
       "a composition reference in addition to identity",
-      { identity: ["identity-1.png"], composition: "identity-1.png" },
+      {
+        identity: ["references/hero.png"],
+        composition: "references/hero.png",
+      },
     ],
   ])("rejects reference-to-video shots with %s", async (_label, references) => {
-    const bundle = await identityBundleWith((manifest) => {
-      setReferences(manifest, 0, references);
+    const root = await makeProject((fixture) => {
+      for (const shot of fixture.shotlist.scenes[0]!.shots)
+        shot.references = references as never;
     });
-    await expect(createPlan(bundle, falReferenceConfiguration)).rejects.toThrow(
+    await expect(
+      planShoot(root, { configuration: falReferenceConfiguration }),
+    ).rejects.toThrow(
       /requires between 1 and 3 identity reference|does not accept a composition reference/,
     );
   });
 
-  it("rejects a reference-to-video shot with an unsupported duration", async () => {
-    const bundle = await identityBundleWith((manifest) => {
-      manifest.shots[0]!.duration = 6;
+  it("treats an unsupported duration as a plan finding, not a validation error", async () => {
+    // Veo reference-to-video only renders 8s; the fixture's shots are 6s.
+    const root = await makeProject((fixture) => {
+      for (const shot of fixture.shotlist.scenes[0]!.shots)
+        shot.references = { identity: ["references/hero.png"] };
     });
-    await expect(createPlan(bundle, falReferenceConfiguration)).rejects.toThrow(
-      "duration 6s is unsupported for this renderer mode",
-    );
+    const { plan } = await planShoot(root, {
+      configuration: falReferenceConfiguration,
+    });
+    expect(plan.planValid).toBe(false);
+    expect(plan.findings[0]).toMatchObject({
+      scope: "engine-compatibility",
+      appliesTo: ["shot-001", "shot-002"],
+    });
   });
 
   it("rejects an msbc mode that does not match the model's registered mode", async () => {
@@ -177,23 +148,24 @@ describe("renderer input contracts", () => {
       }),
     );
     await expect(
-      createPlan("examples/smoke-test-reference.msb", configuration),
+      planShoot(await makeProject(), { configuration }),
     ).rejects.toThrow('renderer mode mismatch: msbc declares "image-to-video"');
   });
 
-  it("requires every future provider to register an input contract", async () => {
+  it("requires every future provider and fal model to register a contract", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "msb-new-renderer-"));
-    const configuration = path.join(root, "future.msbc");
+    const output = {
+      aspectRatio: "16:9",
+      width: 1280,
+      height: 720,
+      frameRate: 24,
+    };
+    const provider = path.join(root, "future.msbc");
     await writeFile(
-      configuration,
+      provider,
       JSON.stringify({
         version: "1.0.0",
-        output: {
-          aspectRatio: "16:9",
-          width: 1280,
-          height: 720,
-          frameRate: 24,
-        },
+        output,
         renderer: {
           provider: "future-provider",
           model: "future-model",
@@ -202,23 +174,14 @@ describe("renderer input contracts", () => {
       }),
     );
     await expect(
-      createPlan("examples/smoke-test.msb", configuration),
+      planShoot(await makeProject(), { configuration: provider }),
     ).rejects.toThrow("unsupported renderer provider: future-provider");
-  });
-
-  it("requires every future fal model to register capabilities", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "msb-new-fal-model-"));
-    const configuration = path.join(root, "future-fal.msbc");
+    const falModel = path.join(root, "future-fal.msbc");
     await writeFile(
-      configuration,
+      falModel,
       JSON.stringify({
         version: "1.0.0",
-        output: {
-          aspectRatio: "16:9",
-          width: 1280,
-          height: 720,
-          frameRate: 24,
-        },
+        output,
         renderer: {
           provider: "fal",
           model: "fal-ai/future-provider/future-model",
@@ -227,18 +190,66 @@ describe("renderer input contracts", () => {
       }),
     );
     await expect(
-      createPlan("examples/smoke-test.msb", configuration),
+      planShoot(await makeProject(), { configuration: falModel }),
     ).rejects.toThrow(
       "unsupported fal renderer model: fal-ai/future-provider/future-model",
     );
   });
 
   it("allows the mock renderer to operate without image references", async () => {
-    const bundle = await compositionBundleWith((manifest) => {
-      setReferences(manifest, 0, {});
+    const root = await makeProject((fixture) => {
+      for (const shot of fixture.shotlist.scenes[0]!.shots)
+        shot.references = { identity: [] };
     });
-    await expect(
-      createPlan(bundle, path.resolve("msbc/mock.msbc")),
-    ).resolves.toMatchObject({ estimatedCost: 0 });
+    const { plan } = await planShoot(root, {
+      configuration: path.resolve("msbc/mock.msbc"),
+    });
+    expect(plan.planValid).toBe(true);
+    expect(plan.estimatedCost).toBe(0);
+  });
+
+  it("maps durations and prompts to model-specific fal inputs", () => {
+    expect(
+      falInput(
+        "fal-ai/minimax/hailuo-02/standard/image-to-video",
+        { aspectRatio: "16:9", width: 1366, height: 768, frameRate: 25 },
+        6,
+        "a prompt",
+        "https://example.test/start.png",
+      ),
+    ).toMatchObject({ duration: "6", resolution: "768P", prompt: "a prompt" });
+    expect(
+      falInput(
+        "fal-ai/ltx-2.3/image-to-video/fast",
+        { aspectRatio: "16:9", width: 1920, height: 1080, frameRate: 25 },
+        6,
+        "a prompt",
+        "https://example.test/start.png",
+      ),
+    ).toMatchObject({ duration: 6, resolution: "1080p", fps: 25 });
+    const imageUrls = ["https://example.test/a.png"];
+    expect(
+      falReferenceInput(
+        "fal-ai/veo3.1/fast/reference-to-video",
+        { aspectRatio: "16:9", width: 1280, height: 720, frameRate: 24 },
+        8,
+        "a prompt",
+        imageUrls,
+      ),
+    ).toMatchObject({
+      image_urls: imageUrls,
+      duration: "8s",
+      resolution: "720p",
+      generate_audio: true,
+    });
+    expect(() =>
+      falReferenceInput(
+        "fal-ai/future-provider/future-model",
+        { aspectRatio: "16:9", width: 1280, height: 720, frameRate: 24 },
+        8,
+        "a prompt",
+        imageUrls,
+      ),
+    ).toThrow("unsupported fal reference-to-video model");
   });
 });

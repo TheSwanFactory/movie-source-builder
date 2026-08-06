@@ -48,8 +48,7 @@ export async function appendVerdict(
   const { shot } = parseTakeId(takeId);
   const shoots = await listShoots(root);
   const known = ledgerTakes(shoots).find((take) => take.take === takeId);
-  if (!known)
-    throw new Error(`no shoot records take ${takeId} (shot ${shot})`);
+  if (!known) throw new Error(`no shoot records take ${takeId} (shot ${shot})`);
   if (options.verdict === "circled" && known.status !== "rendered")
     throw new Error(`cannot circle a failed take: ${takeId}`);
   let notes: string | undefined;

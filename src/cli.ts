@@ -83,7 +83,10 @@ program
     "Assemble the zero-cost review movie from screenplay cues and boards",
   )
   .argument("<folder>")
-  .option("-o, --out <file>", "explicit output path; defaults to cuts/animatic.mp4")
+  .option(
+    "-o, --out <file>",
+    "explicit output path; defaults to cuts/animatic.mp4",
+  )
   .action(async (folder, options) => {
     const output = await createAnimatic(folder, { out: options.out });
     console.log(`Wrote ${output}`);
@@ -99,7 +102,10 @@ program
     "-c, --config <file>",
     "Movie Source Builder Configuration (.msbc); defaults to packaged default.msbc",
   )
-  .option("--dry-run", "plan and price without writing or contacting a provider")
+  .option(
+    "--dry-run",
+    "plan and price without writing or contacting a provider",
+  )
   .option("--max-cost <usd>", "maximum new generation cost", number)
   .option("--concurrency <number>", "parallel requests", number, 2)
   .option("--fresh", "ignore reusable takes and render every shot")
@@ -189,8 +195,14 @@ program
     "Assemble the deliverable cut from circled (or newest unrejected) takes",
   )
   .argument("<folder>")
-  .option("--shoot <id>", "shoot to realize; defaults to the latest complete shoot")
-  .option("-o, --out <file>", "explicit output path; defaults to cuts/<shoot>.mp4")
+  .option(
+    "--shoot <id>",
+    "shoot to realize; defaults to the latest complete shoot",
+  )
+  .option(
+    "-o, --out <file>",
+    "explicit output path; defaults to cuts/<shoot>.mp4",
+  )
   .action(async (folder, options) => {
     const result = await createCut(folder, {
       shootId: options.shoot,

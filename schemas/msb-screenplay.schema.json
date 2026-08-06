@@ -15,8 +15,7 @@
         },
         "draftHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       },
-      "required": ["title", "duration", "draft", "draftHash"],
-      "additionalProperties": false
+      "required": ["title", "duration", "draft", "draftHash"]
     },
     "scenes": {
       "minItems": 1,
@@ -57,16 +56,13 @@
                 "delivery": { "type": "string" },
                 "text": { "type": "string", "minLength": 1 }
               },
-              "required": ["id", "kind", "text"],
-              "additionalProperties": false
+              "required": ["id", "kind", "text"]
             }
           }
         },
-        "required": ["id", "slug", "cues"],
-        "additionalProperties": false
+        "required": ["id", "slug", "cues"]
       }
     }
   },
-  "required": ["formatVersion", "screenplay", "scenes"],
-  "additionalProperties": false
+  "required": ["formatVersion", "screenplay", "scenes"]
 }

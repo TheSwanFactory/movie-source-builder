@@ -4,40 +4,27 @@
     {
       "file": "references/agent-86.png",
       "kind": "model-sheet",
-      "subjects": [
-        "agent-86"
-      ]
+      "subjects": ["agent-86"]
     },
     {
       "file": "references/agent-99.png",
       "kind": "model-sheet",
-      "subjects": [
-        "agent-99"
-      ]
+      "subjects": ["agent-99"]
     },
     {
       "file": "references/agent-13.png",
       "kind": "model-sheet",
-      "subjects": [
-        "agent-13"
-      ]
+      "subjects": ["agent-13"]
     },
     {
       "file": "references/ai-control-center.png",
       "kind": "model-sheet",
-      "subjects": [
-        "ai-control-center"
-      ]
+      "subjects": ["ai-control-center"]
     },
     {
       "file": "references/t0000.0-rally.png",
       "kind": "board",
-      "subjects": [
-        "agent-86",
-        "agent-99",
-        "agent-13",
-        "ai-control-center"
-      ],
+      "subjects": ["agent-86", "agent-99", "agent-13", "ai-control-center"],
       "anchor": {
         "cue": "c001",
         "at": 0,
@@ -51,12 +38,7 @@
     {
       "file": "references/t0010.0-triumph.png",
       "kind": "board",
-      "subjects": [
-        "agent-86",
-        "agent-99",
-        "agent-13",
-        "ai-control-center"
-      ],
+      "subjects": ["agent-86", "agent-99", "agent-13", "ai-control-center"],
       "anchor": {
         "cue": "c005",
         "at": 10,
@@ -69,12 +51,7 @@
     {
       "file": "references/t0016.3-collapse.png",
       "kind": "board",
-      "subjects": [
-        "agent-86",
-        "agent-99",
-        "agent-13",
-        "ai-control-center"
-      ],
+      "subjects": ["agent-86", "agent-99", "agent-13", "ai-control-center"],
       "anchor": {
         "cue": "c007",
         "at": 16.3,
@@ -87,12 +64,7 @@
     {
       "file": "references/t0022.0-aftermath.png",
       "kind": "board",
-      "subjects": [
-        "agent-86",
-        "agent-99",
-        "agent-13",
-        "ai-control-center"
-      ],
+      "subjects": ["agent-86", "agent-99", "agent-13", "ai-control-center"],
       "anchor": {
         "cue": "c009",
         "at": 22,

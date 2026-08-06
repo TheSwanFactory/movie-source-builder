@@ -12,10 +12,14 @@ import {
 } from "../dist/schema.js";
 
 await mkdir("schemas", { recursive: true });
+// io: "input" — these schemas validate authored documents, where zod
+// .default() fields are optional (the output type would require them).
 const writeSchema = async (file, schema) =>
   writeFile(
     file,
-    await format(JSON.stringify(z.toJSONSchema(schema)), { parser: "json" }),
+    await format(JSON.stringify(z.toJSONSchema(schema, { io: "input" })), {
+      parser: "json",
+    }),
   );
 
 await writeSchema("schemas/msb-header.schema.json", msbHeaderSchema);

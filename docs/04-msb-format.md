@@ -68,23 +68,23 @@ particular, the creative text is always a **screenplay**, never a "script" —
 that word is hopelessly overloaded in a repo full of shell scripts,
 [`scripts/prompts/`](../scripts/prompts/), and CLI tooling.
 
-| Term | Meaning here | Provenance |
-| --- | --- | --- |
-| **draft screenplay** | the author's screenplay, verbatim, in any name and format; never parsed | screenwriting |
-| **canonical screenplay** | the Producer's timed, schema-validated JSON rendering of the draft (`screenplay.json`); the project's timeline authority | this format |
-| **model sheet** | isolated, neutral-backdrop identity reference for a character/location/prop | animation |
-| **board** | a reference still anchored to a moment on the screenplay timeline | storyboarding |
-| **shot list** | a versioned tiling of the screenplay timeline into shots, with references and prompts | production |
-| **shoot** | one renderer invocation against one shot list with one engine | production |
-| **take** | one rendered attempt at one shot | on-set; ≈ a "Version" in ShotGrid/ftrack pipelines |
-| **dailies** | a review session that records verdicts on takes | post-production |
-| **circled take** | a take a reviewer has marked as the keeper | on-set ("circle takes") |
-| **animatic** | the zero-cost review movie assembled from the screenplay and boards | animation; replaces v1 "storyboard `.msbo`" |
-| **cut** | a deliverable movie assembled from circled takes | editorial; replaces v1 "export" |
+| Term                     | Meaning here                                                                                                             | Provenance                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| **draft screenplay**     | the author's screenplay, verbatim, in any name and format; never parsed                                                  | screenwriting                                      |
+| **canonical screenplay** | the Producer's timed, schema-validated JSON rendering of the draft (`screenplay.json`); the project's timeline authority | this format                                        |
+| **model sheet**          | isolated, neutral-backdrop identity reference for a character/location/prop                                              | animation                                          |
+| **board**                | a reference still anchored to a moment on the screenplay timeline                                                        | storyboarding                                      |
+| **shot list**            | a versioned tiling of the screenplay timeline into shots, with references and prompts                                    | production                                         |
+| **shoot**                | one renderer invocation against one shot list with one engine                                                            | production                                         |
+| **take**                 | one rendered attempt at one shot                                                                                         | on-set; ≈ a "Version" in ShotGrid/ftrack pipelines |
+| **dailies**              | a review session that records verdicts on takes                                                                          | post-production                                    |
+| **circled take**         | a take a reviewer has marked as the keeper                                                                               | on-set ("circle takes")                            |
+| **animatic**             | the zero-cost review movie assembled from the screenplay and boards                                                      | animation; replaces v1 "storyboard `.msbo`"        |
+| **cut**                  | a deliverable movie assembled from circled takes                                                                         | editorial; replaces v1 "export"                    |
 
-The whole retention model in one sentence of that vocabulary: *takes survive
+The whole retention model in one sentence of that vocabulary: _takes survive
 the shoot, dailies happen whenever, circling picks the keeper, the cut
-assembles circled takes, and nothing is struck without an explicit decision.*
+assembles circled takes, and nothing is struck without an explicit decision._
 
 ## Design principles
 
@@ -116,7 +116,7 @@ violates one is a design bug, not a detail.
    Shot lists are immutable once any shoot cites them — editing means
    writing the next version.
 5. **A shoot is a link object, not a container.** A shoot is one JSON file
-   that *points to* its source (shot list + engine, by hash), the takes it
+   that _points to_ its source (shot list + engine, by hash), the takes it
    reused from earlier shoots, and the new takes it produced. Media is never
    copied between shoots, and a shoot that produced nothing — a failed plan,
    an all-cache-hits rerun — is still a real, cheap ledger entry.
@@ -126,7 +126,7 @@ violates one is a design bug, not a detail.
 7. **"Latest" is computable, and garbage collection is a choice.** Any script
    can determine the latest shot list, latest complete shoot, and each shot's
    current take from folder contents alone — ordinal filenames, no symlinks,
-   no database. Deleting obsolete media is something a script *chooses* to
+   no database. Deleting obsolete media is something a script _chooses_ to
    do, explicitly, under stated rules — never a side effect of rendering.
 8. **Everything machine-read is schema-validated and hash-linked**, exactly
    as v1 already does for archives ([`src/schema.ts`](../src/schema.ts),
@@ -218,17 +218,40 @@ effects, provenance back to a draft passage — without a grammar change.
       "id": "scene-001",
       "slug": "control-center",
       "cues": [
-        { "id": "c001", "at": 0, "kind": "action",
-          "text": "Three sock puppets face the camera in the cardboard control center." },
-        { "id": "c002", "span": [1, 4], "kind": "dialogue", "character": "agent-86",
-          "text": "Would you believe… fully autonomous by Friday?" },
-        { "id": "c003", "span": [5, 8], "kind": "dialogue", "character": "agent-99",
-          "text": "I'd believe a staging deploy." },
-        { "id": "c004", "at": 16, "kind": "action",
-          "text": "The agents turn to the big screen." },
-        { "id": "c005", "span": [26, 31], "kind": "dialogue", "character": "agent-13",
+        {
+          "id": "c001",
+          "at": 0,
+          "kind": "action",
+          "text": "Three sock puppets face the camera in the cardboard control center."
+        },
+        {
+          "id": "c002",
+          "span": [1, 4],
+          "kind": "dialogue",
+          "character": "agent-86",
+          "text": "Would you believe… fully autonomous by Friday?"
+        },
+        {
+          "id": "c003",
+          "span": [5, 8],
+          "kind": "dialogue",
+          "character": "agent-99",
+          "text": "I'd believe a staging deploy."
+        },
+        {
+          "id": "c004",
+          "at": 16,
+          "kind": "action",
+          "text": "The agents turn to the big screen."
+        },
+        {
+          "id": "c005",
+          "span": [26, 31],
+          "kind": "dialogue",
+          "character": "agent-13",
           "delivery": "from inside the filing cabinet",
-          "text": "Nobody ever checks the logs." }
+          "text": "Nobody ever checks the logs."
+        }
       ]
     }
   ]
@@ -252,9 +275,9 @@ the screenplay the **timeline authority** for the whole format:
   mechanism.
 - **The animatic needs no shot list.** Timed cues plus time-anchored boards
   are sufficient to assemble the zero-cost review movie — so the cheap
-  look-and-feel checkpoint happens *before* any framing work, matching real
+  look-and-feel checkpoint happens _before_ any framing work, matching real
   production order (boards and animatic first, breakdown after).
-- **Pacing is authorial; review is readable.** The Author owns words *and*
+- **Pacing is authorial; review is readable.** The Author owns words _and_
   timing — both are creative decisions in a fixed-length piece — but
   confirms them against `msb inspect --screenplay` (the screenplay rendered
   as readable, screenplay-formatted text) and the animatic, never by reading
@@ -336,7 +359,7 @@ shot list instead of lost in a chat.
 **Engine compatibility becomes tiling validation.** An engine's duration
 menu (6s/8s/10s per model) constrains what spans a valid shot list may use
 under that engine. "Veo can't render this project" stops being a mid-shoot
-discovery and becomes a plan-time check — *no valid tiling exists* — that
+discovery and becomes a plan-time check — _no valid tiling exists_ — that
 costs nothing and is recorded as a finding.
 
 Engine configuration (`.msbc`) is otherwise **unchanged**: it stays a
@@ -358,13 +381,13 @@ takes/shot-001.t03.last.png
 takes/shot-001.t03.notes.md
 ```
 
-Take *metadata* (cost, request id, chain score, error) lives in the shoot
+Take _metadata_ (cost, request id, chain score, error) lives in the shoot
 that created it, so the pool holds only content. `msb inspect --shot
 shot-001` joins the pool against the shoot ledger to show every take of a
 shot across all engines — the exact "let me look at what actually happened"
 query #13 found impossible.
 
-The v1 concept of a disposable `--work-dir` is gone: the pool *is* where
+The v1 concept of a disposable `--work-dir` is gone: the pool _is_ where
 render output lands, failed and succeeded alike, and it is part of the
 format.
 
@@ -372,7 +395,7 @@ format.
 
 A **shoot** is one invocation of the renderer against one shot list with one
 engine configuration — and, answering #13's follow-up question directly: yes,
-it is a first-class object, and it is *just JSON*. A shoot owns no media. It
+it is a first-class object, and it is _just JSON_. A shoot owns no media. It
 links three things: **source** (shot list + engine, by hash), **reused
 inputs** (takes from earlier shoots whose cache keys still match), and **new
 outputs** (takes it rendered into the pool). Filenames are
@@ -391,12 +414,21 @@ creation order.
   "engine": {
     "configName": "fal-hailuo-02-standard",
     "hash": "sha256-…",
-    "resolved": { "provider": "fal", "model": "hailuo-02-standard", "mode": "image-to-video" }
+    "resolved": {
+      "provider": "fal",
+      "model": "hailuo-02-standard",
+      "mode": "image-to-video"
+    }
   },
   "tool": { "name": "movie-source-builder", "version": "0.7.0" },
   "costs": { "estimated": 1.86, "actual": 0.62 },
   "reused": [
-    { "shot": "shot-001", "take": "shot-001.t02", "from": "0001-ltx", "mediaHash": "sha256-…" }
+    {
+      "shot": "shot-001",
+      "take": "shot-001.t02",
+      "from": "0001-ltx",
+      "mediaHash": "sha256-…"
+    }
   ],
   "takes": [
     {
@@ -456,7 +488,11 @@ append-only ledger: `dailies/<ordinal>.json`, one file per review session.
   "formatVersion": "2.0.0",
   "dailies": { "id": "0001", "at": "2026-08-05T04:20:00Z", "by": "author" },
   "verdicts": [
-    { "take": "shot-001.t01", "verdict": "rejected", "notes": "takes/shot-001.t01.notes.md" },
+    {
+      "take": "shot-001.t01",
+      "verdict": "rejected",
+      "notes": "takes/shot-001.t01.notes.md"
+    },
     { "take": "shot-001.t02", "verdict": "circled" }
   ]
 }
@@ -482,8 +518,8 @@ contacts a provider.
 The **animatic** is a cut too — assembled from the canonical screenplay's
 cues and the boards, with zero network requests (v1's storyboard `.msbo`,
 renamed to the standard term, demoted to a deterministic regenerable cut,
-and — because the screenplay is now timed — available *before any shot list
-exists*). Review verdicts on an animatic are ordinary dailies entries.
+and — because the screenplay is now timed — available _before any shot list
+exists_). Review verdicts on an animatic are ordinary dailies entries.
 
 ## Latest, retention, and garbage collection
 
@@ -494,17 +530,17 @@ above. All three are computable from filenames plus JSON, no symlinks, no
 database; `msb latest <folder>` prints them.
 
 **Retention policy (what a producer should expect to find).** By default,
-*everything is retained indefinitely*: every draft, every take's media and
+_everything is retained indefinitely_: every draft, every take's media and
 last frame, every shoot, every dailies verdict, every finding. Rendering
 never deletes anything. The folder grows with use — that is the point, and
 the explicit reversal of v1's lean/throwaway model.
 
 **Garbage collection is opt-in and rule-bound.** `msb gc <folder>` deletes
-*take media only* (`.mp4`) — never ledger JSON, notes, or last frames (small,
+_take media only_ (`.mp4`) — never ledger JSON, notes, or last frames (small,
 and they are the chaining/diagnosis evidence). Reclaimable takes are those
 that are rejected, or neither circled nor the newest take of their shot nor
 linked (as `reused` or new) by the latest complete shoot. `--dry-run` first,
-always. After `gc`, the record *that* a take happened, what it cost, its last
+always. After `gc`, the record _that_ a take happened, what it cost, its last
 frame, and why it was rejected always survive — only the video bytes go.
 
 **Version control.** The folder is git-friendly in layers: everything except
@@ -515,14 +551,14 @@ folder" rule — see the impact section below.
 
 ## How this answers #13's concrete losses
 
-| #13 loss | v2 mechanism |
-| --- | --- |
-| Failed LTX frames deleted before/without inspection | Takes land in the durable pool; nothing deletes media but explicit `gc`, which always spares last frames, notes, and the ledger |
-| Veo 6s/8s incompatibility known only in a chat transcript | Plan-time tiling validation; a `failed` shoot with zero takes and one structured `finding`, surfaced by `msb inspect --findings` |
-| "6 puppets" defect vs. "engine style difference" distinction lost | `rendered` in the shoot, `rejected` in dailies, reasoning in `notes.md` beside the frames it judges |
-| Retry attempts never inspected | Each retry is its own numbered take, reviewable in any later dailies session |
-| No way to see history via the CLI | `msb inspect` reports shot lists, shoots, takes, verdicts, findings — `--shot` shows one shot's full history across engines |
-| What is retained, for how long | Stated plainly above: everything, indefinitely, unless a human runs `gc` |
+| #13 loss                                                          | v2 mechanism                                                                                                                     |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Failed LTX frames deleted before/without inspection               | Takes land in the durable pool; nothing deletes media but explicit `gc`, which always spares last frames, notes, and the ledger  |
+| Veo 6s/8s incompatibility known only in a chat transcript         | Plan-time tiling validation; a `failed` shoot with zero takes and one structured `finding`, surfaced by `msb inspect --findings` |
+| "6 puppets" defect vs. "engine style difference" distinction lost | `rendered` in the shoot, `rejected` in dailies, reasoning in `notes.md` beside the frames it judges                              |
+| Retry attempts never inspected                                    | Each retry is its own numbered take, reviewable in any later dailies session                                                     |
+| No way to see history via the CLI                                 | `msb inspect` reports shot lists, shoots, takes, verdicts, findings — `--shot` shows one shot's full history across engines      |
+| What is retained, for how long                                    | Stated plainly above: everything, indefinitely, unless a human runs `gc`                                                         |
 
 ## Tradeoffs against the v1 lean model
 
@@ -547,7 +583,7 @@ Made explicit, per #13's acceptance criteria:
 
 - **Revises [`03-prompt-architecture.md`](03-prompt-architecture.md)
   assumption 5** ("interim outputs belong in gitignored `build/`, never
-  inside a tracked source folder"). In v2, outputs live *inside* the project
+  inside a tracked source folder"). In v2, outputs live _inside_ the project
   folder by design; the gitignore boundary moves from "the whole build tree"
   to "take media and cuts." The rationale that assumption protected — never
   let generated debris masquerade as creative source — is preserved
@@ -566,7 +602,7 @@ Made explicit, per #13's acceptance criteria:
   takes and `msb circle <folder> --take shot-001.t02 [--notes <file>]` /
   `--reject` append verdicts; `msb cut <folder>` assembles the deliverable;
   `msb latest`, `msb gc --dry-run`, `msb inspect
-  [--findings|--shot <id>|--screenplay]` as described above;
+[--findings|--shot <id>|--screenplay]` as described above;
   `msb pack <folder> [--source-only]` emits the optional
   transport archive. Exit codes and cost/safety controls (`--dry-run`,
   `--max-cost`, credential handling, mock engine) carry over unchanged.
@@ -592,5 +628,5 @@ None of these blocks the design; recorded so they aren't relitigated:
   emits the JSON) is an input convenience to add on demand, never a second
   source of truth.
 - **Per-engine render parameters** (guidance scale, seeds) likely belong in
-  the `.msbc`, unlike per-engine *prompts* (creative, in the shot list) —
+  the `.msbc`, unlike per-engine _prompts_ (creative, in the shot list) —
   draw the line once a second real case exists.

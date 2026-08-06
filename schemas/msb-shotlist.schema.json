@@ -16,8 +16,7 @@
         },
         "note": { "type": "string" }
       },
-      "required": ["id", "screenplayHash", "createdAt"],
-      "additionalProperties": false
+      "required": ["id", "screenplayHash", "createdAt"]
     },
     "scenes": {
       "minItems": 1,
@@ -76,7 +75,6 @@
                       "description": "Explicit ending-frame raster for renderers that support first/last-frame generation."
                     }
                   },
-                  "required": ["identity"],
                   "additionalProperties": false
                 },
                 "continuity": {
@@ -105,25 +103,13 @@
                   "description": "Id of an earlier shot to chain from. The shot must still author its own references.composition; at shoot time the predecessor's last rendered frame is compared against it, and a drift miss re-renders the predecessor as additional numbered takes (CHAIN_DRIFT_MAX_ATTEMPTS in src/chain.ts) before failing."
                 }
               },
-              "required": [
-                "id",
-                "span",
-                "characters",
-                "action",
-                "camera",
-                "references",
-                "continuity",
-                "prompts"
-              ],
-              "additionalProperties": false
+              "required": ["id", "span", "action", "camera"]
             }
           }
         },
-        "required": ["id", "shots"],
-        "additionalProperties": false
+        "required": ["id", "shots"]
       }
     }
   },
-  "required": ["formatVersion", "shotlist", "scenes"],
-  "additionalProperties": false
+  "required": ["formatVersion", "shotlist", "scenes"]
 }

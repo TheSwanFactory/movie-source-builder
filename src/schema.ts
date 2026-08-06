@@ -129,7 +129,9 @@ export type Screenplay = z.infer<typeof screenplaySchema>;
 
 export const referenceImageSchema = z
   .object({
-    file: relativePath.describe("Project-root-relative path under references/."),
+    file: relativePath.describe(
+      "Project-root-relative path under references/.",
+    ),
     kind: z.enum(["model-sheet", "board"]),
     subjects: z.array(id).default([]),
     anchor: z
@@ -239,9 +241,7 @@ export const shotlistSchema = z.object({
     createdAt: z.string().datetime(),
     note: z.string().optional(),
   }),
-  scenes: z
-    .array(z.object({ id, shots: z.array(shotSchema).min(1) }))
-    .min(1),
+  scenes: z.array(z.object({ id, shots: z.array(shotSchema).min(1) })).min(1),
 });
 
 export type Shotlist = z.infer<typeof shotlistSchema>;

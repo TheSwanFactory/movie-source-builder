@@ -73,7 +73,9 @@ export async function createAnimatic(
     ...new Set(
       [
         0,
-        ...boards.map((board) => board.anchor!.at).filter((at) => at < duration),
+        ...boards
+          .map((board) => board.anchor!.at)
+          .filter((at) => at < duration),
         duration,
       ].sort((a, b) => a - b),
     ),
@@ -110,8 +112,7 @@ export async function createAnimatic(
           return { cue, start, end };
         })
         .filter(
-          (event) =>
-            event.start < segment.end && event.end > segment.start,
+          (event) => event.start < segment.end && event.end > segment.start,
         )
         .map((event) => ({
           text: cueText(event.cue),
@@ -131,12 +132,7 @@ export async function createAnimatic(
           `1\n${srtTimestamp(0)} --> ${srtTimestamp(segmentDuration)}\n \n`,
       );
       const inputArgs = segment.board
-        ? [
-            "-loop",
-            "1",
-            "-i",
-            resolveInside(root, segment.board.file),
-          ]
+        ? ["-loop", "1", "-i", resolveInside(root, segment.board.file)]
         : ["-f", "lavfi", "-i", "color=c=0x202a3c:s=1280x720"];
       const clip = path.join(work, `segment-${index}.mp4`);
       await execa(ffmpeg, [

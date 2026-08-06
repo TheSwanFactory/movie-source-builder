@@ -50,7 +50,10 @@ export async function atomicJson(file: string, value: unknown): Promise<void> {
   await atomicWrite(file, toJson(value));
 }
 
-async function readProjectJson(root: string, relative: string): Promise<{
+async function readProjectJson(
+  root: string,
+  relative: string,
+): Promise<{
   raw: Buffer;
   value: unknown;
 }> {
@@ -97,7 +100,10 @@ export async function loadScreenplay(root: string): Promise<{
   screenplayHash: string;
 }> {
   const { raw, value } = await readProjectJson(root, "screenplay.json");
-  return { screenplay: screenplaySchema.parse(value), screenplayHash: hash(raw) };
+  return {
+    screenplay: screenplaySchema.parse(value),
+    screenplayHash: hash(raw),
+  };
 }
 
 export async function loadReferencesIndex(
@@ -159,7 +165,10 @@ export function validateScreenplaySemantics(
         );
     }
   }
-  const spansBySpeaker = new Map<string, Array<{ id: string; span: [number, number] }>>();
+  const spansBySpeaker = new Map<
+    string,
+    Array<{ id: string; span: [number, number] }>
+  >();
   for (const cue of allCues(screenplay)) {
     if (cue.span === undefined) continue;
     const speaker = cue.character ?? "(ensemble)";
@@ -186,7 +195,9 @@ export async function ingestProject(root: string): Promise<LoadedProject> {
   const { screenplay, screenplayHash } = await loadScreenplay(root);
   validateScreenplaySemantics(header, screenplay);
   const draft = screenplay.screenplay.draft;
-  const draftBytes = await readFile(resolveInside(root, draft)).catch(() => null);
+  const draftBytes = await readFile(resolveInside(root, draft)).catch(
+    () => null,
+  );
   if (draftBytes === null)
     throw new Error(`screenplay names a missing draft: ${draft}`);
   if (hash(draftBytes) !== screenplay.screenplay.draftHash)
@@ -211,9 +222,7 @@ export async function ingestProject(root: string): Promise<LoadedProject> {
   for (const image of references.images)
     for (const subject of image.subjects)
       if (!castIds.has(subject))
-        throw new Error(
-          `${image.file} names an unknown subject: ${subject}`,
-        );
+        throw new Error(`${image.file} names an unknown subject: ${subject}`);
   for (const member of header.cast) {
     if (member.modelSheet !== undefined) {
       if (!(await fileExists(root, member.modelSheet)))
@@ -337,7 +346,9 @@ export async function listShoots(root: string): Promise<ShootRecord[]> {
     const { value } = await readProjectJson(root, `shoots/${name}`);
     const shoot = shootSchema.parse(value);
     if (`${shoot.shoot.id}.json` !== name)
-      throw new Error(`shoots/${name} declares mismatched id: ${shoot.shoot.id}`);
+      throw new Error(
+        `shoots/${name} declares mismatched id: ${shoot.shoot.id}`,
+      );
     records.push({ file: `shoots/${name}`, shoot });
   }
   return records;
@@ -415,9 +426,7 @@ export async function scanTakePool(root: string): Promise<PoolTake[]> {
     else take.notes = `takes/${name}`;
     byTake.set(takeId, take);
   }
-  return [...byTake.values()].sort((a, b) =>
-    a.take.localeCompare(b.take),
-  );
+  return [...byTake.values()].sort((a, b) => a.take.localeCompare(b.take));
 }
 
 /**
@@ -501,7 +510,9 @@ export async function latestCompleteShoot(
   shoots?: ShootRecord[],
 ): Promise<ShootRecord | undefined> {
   const records = shoots ?? (await listShoots(root));
-  return records.filter((record) => record.shoot.shoot.status === "complete").at(-1);
+  return records
+    .filter((record) => record.shoot.shoot.status === "complete")
+    .at(-1);
 }
 
 export interface LatestReport {

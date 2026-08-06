@@ -11,10 +11,7 @@
       "shots": [
         {
           "id": "smoke-shot-001",
-          "span": [
-            0,
-            6
-          ],
+          "span": [0, 6],
           "characters": [],
           "action": "The geometric shapes drift slowly across the frame with gentle parallax.",
           "camera": "Static wide shot.",

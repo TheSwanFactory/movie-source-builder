@@ -14,8 +14,7 @@
         },
         "status": { "type": "string", "enum": ["complete", "failed"] }
       },
-      "required": ["id", "createdAt", "status"],
-      "additionalProperties": false
+      "required": ["id", "createdAt", "status"]
     },
     "shotlist": {
       "type": "object",
@@ -23,8 +22,7 @@
         "id": { "type": "string", "pattern": "^\\d{3}$" },
         "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       },
-      "required": ["id", "hash"],
-      "additionalProperties": false
+      "required": ["id", "hash"]
     },
     "engine": {
       "type": "object",
@@ -51,8 +49,7 @@
                 },
                 "frameRate": { "type": "number", "exclusiveMinimum": 0 }
               },
-              "required": ["aspectRatio", "width", "height", "frameRate"],
-              "additionalProperties": false
+              "required": ["aspectRatio", "width", "height", "frameRate"]
             },
             "renderer": {
               "type": "object",
@@ -71,21 +68,14 @@
                   "items": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$" }
                 }
               },
-              "required": [
-                "provider",
-                "model",
-                "mode",
-                "requiredEnvironmentVariables"
-              ],
-              "additionalProperties": false
+              "required": ["provider", "model"]
             }
           },
           "required": ["version", "output", "renderer"],
           "additionalProperties": false
         }
       },
-      "required": ["configName", "hash", "resolved"],
-      "additionalProperties": false
+      "required": ["configName", "hash", "resolved"]
     },
     "tool": {
       "type": "object",
@@ -93,8 +83,7 @@
         "name": { "type": "string", "const": "movie-source-builder" },
         "version": { "type": "string" }
       },
-      "required": ["name", "version"],
-      "additionalProperties": false
+      "required": ["name", "version"]
     },
     "costs": {
       "type": "object",
@@ -102,8 +91,7 @@
         "estimated": { "type": "number", "minimum": 0 },
         "actual": { "type": "number", "minimum": 0 }
       },
-      "required": ["estimated", "actual"],
-      "additionalProperties": false
+      "required": ["estimated", "actual"]
     },
     "reused": {
       "default": [],
@@ -120,8 +108,7 @@
           "mediaHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "cacheKey": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
         },
-        "required": ["shot", "take", "from", "mediaHash", "cacheKey"],
-        "additionalProperties": false
+        "required": ["shot", "take", "from", "mediaHash", "cacheKey"]
       }
     },
     "takes": {
@@ -153,16 +140,7 @@
             "items": { "type": "string" }
           }
         },
-        "required": [
-          "shot",
-          "take",
-          "status",
-          "cacheKey",
-          "cost",
-          "error",
-          "warnings"
-        ],
-        "additionalProperties": false
+        "required": ["shot", "take", "status", "cacheKey"]
       }
     },
     "findings": {
@@ -185,8 +163,7 @@
             "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" }
           }
         },
-        "required": ["scope", "claim", "appliesTo"],
-        "additionalProperties": false
+        "required": ["scope", "claim"]
       }
     },
     "warnings": {
@@ -195,17 +172,5 @@
       "items": { "type": "string" }
     }
   },
-  "required": [
-    "formatVersion",
-    "shoot",
-    "shotlist",
-    "engine",
-    "tool",
-    "costs",
-    "reused",
-    "takes",
-    "findings",
-    "warnings"
-  ],
-  "additionalProperties": false
+  "required": ["formatVersion", "shoot", "shotlist", "engine", "tool", "costs"]
 }

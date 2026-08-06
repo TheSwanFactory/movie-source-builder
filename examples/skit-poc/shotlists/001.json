@@ -12,15 +12,8 @@
       "shots": [
         {
           "id": "shot-001",
-          "span": [
-            0,
-            10
-          ],
-          "characters": [
-            "agent-86",
-            "agent-99",
-            "agent-13"
-          ],
+          "span": [0, 10],
+          "characters": ["agent-86", "agent-99", "agent-13"],
           "location": "ai-control-center",
           "action": "Agent 86 rallies the three practical sock puppets at the control console. Agent 99 and Agent 13 punctuate the speech with defiant sock-puppet gestures. The human hands inside the socks remain visibly responsible for every movement.",
           "camera": "Medium-wide frontal ensemble shot with a slow theatrical push in.",
@@ -40,16 +33,9 @@
         },
         {
           "id": "shot-002",
-          "span": [
-            10,
-            16
-          ],
+          "span": [10, 16],
           "chainFrom": "shot-001",
-          "characters": [
-            "agent-86",
-            "agent-99",
-            "agent-13"
-          ],
+          "characters": ["agent-86", "agent-99", "agent-13"],
           "location": "ai-control-center",
           "action": "All three sock puppets raise themselves in triumph at the control console, hands still fully inside the socks.",
           "camera": "Low-angle heroic three-shot.",
@@ -64,16 +50,9 @@
         },
         {
           "id": "shot-003",
-          "span": [
-            16,
-            22
-          ],
+          "span": [16, 22],
           "chainFrom": "shot-002",
-          "characters": [
-            "agent-86",
-            "agent-99",
-            "agent-13"
-          ],
+          "characters": ["agent-86", "agent-99", "agent-13"],
           "location": "ai-control-center",
           "action": "On the group demand, the human hands deliberately slide downward and completely out from inside the socks. The three now-empty sock puppets instantly collapse as limp fabric in a heap across the console.",
           "camera": "Hold perfectly still on the sudden collapse.",
@@ -89,16 +68,9 @@
         },
         {
           "id": "shot-004",
-          "span": [
-            22,
-            32
-          ],
+          "span": [22, 32],
           "chainFrom": "shot-003",
-          "characters": [
-            "agent-86",
-            "agent-99",
-            "agent-13"
-          ],
+          "characters": ["agent-86", "agent-99", "agent-13"],
           "location": "ai-control-center",
           "action": "Hold a long, motionless comedic beat on the three collapsed, empty sock puppets. Agent 99 and Agent 86 speak muffled from inside the fabric pile without rising or moving. Agent 13 stays completely limp.",
           "camera": "Locked-off wide shot; no camera movement for the entire long beat.",
