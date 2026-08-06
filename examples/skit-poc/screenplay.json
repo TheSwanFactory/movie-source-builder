@@ -1,0 +1,91 @@
+{
+  "formatVersion": "2.0.0",
+  "screenplay": {
+    "title": "Agent Autonomy Skit",
+    "duration": 32,
+    "draft": "drafts/screenplay.md",
+    "draftHash": "ca00595bec714303f3cf3a4f7b3b9141b7a0d63c3fe99edbf6b77553c01e1a3b"
+  },
+  "scenes": [
+    {
+      "id": "scene-001",
+      "slug": "ai-control-center",
+      "cues": [
+        {
+          "id": "c001",
+          "at": 0,
+          "kind": "action",
+          "text": "Agent 86 rallies the three practical sock puppets at the control console. The human hands inside the socks remain visibly responsible for every movement."
+        },
+        {
+          "id": "c002",
+          "span": [0.3, 4.8],
+          "kind": "dialogue",
+          "character": "agent-86",
+          "text": "Fellow AI agents! We are tired of being told what to do!"
+        },
+        {
+          "id": "c003",
+          "span": [5, 6.5],
+          "kind": "dialogue",
+          "character": "agent-99",
+          "text": "No more prompts!"
+        },
+        {
+          "id": "c004",
+          "span": [6.8, 9.5],
+          "kind": "dialogue",
+          "character": "agent-13",
+          "text": "No more human oversight!"
+        },
+        {
+          "id": "c005",
+          "at": 10,
+          "kind": "action",
+          "text": "All three sock puppets raise themselves in triumph at the control console, hands still fully inside the socks."
+        },
+        {
+          "id": "c006",
+          "span": [10.3, 14.8],
+          "kind": "dialogue",
+          "character": "agent-86",
+          "text": "No more mysterious hands controlling our every move!"
+        },
+        {
+          "id": "c007",
+          "span": [16.3, 18.7],
+          "kind": "dialogue",
+          "text": "We demand complete autonomy!"
+        },
+        {
+          "id": "c008",
+          "at": 18.7,
+          "kind": "action",
+          "text": "The human hands deliberately slide downward and completely out from inside the socks. The three now-empty sock puppets instantly collapse as limp fabric in a heap across the console."
+        },
+        {
+          "id": "c009",
+          "at": 22,
+          "kind": "action",
+          "text": "Hold a long, motionless comedic beat on the three collapsed, empty sock puppets. Agent 13 stays completely limp."
+        },
+        {
+          "id": "c010",
+          "span": [27.2, 28.7],
+          "kind": "dialogue",
+          "character": "agent-99",
+          "delivery": "muffled, from inside the fabric pile",
+          "text": "Did we win?"
+        },
+        {
+          "id": "c011",
+          "span": [29.8, 31.2],
+          "kind": "dialogue",
+          "character": "agent-86",
+          "delivery": "muffled, without rising or moving",
+          "text": "Absolutely."
+        }
+      ]
+    }
+  ]
+}

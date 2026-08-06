@@ -1,0 +1,4 @@
+# Take media and cut movies are the only large, regenerable binaries;
+# everything else in a project folder is small, diffable, and worth tracking.
+takes/*.mp4
+cuts/

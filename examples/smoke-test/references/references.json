@@ -1,0 +1,15 @@
+{
+  "formatVersion": "2.0.0",
+  "images": [
+    {
+      "file": "references/t0000.0-start.png",
+      "kind": "board",
+      "subjects": [],
+      "anchor": {
+        "cue": "c001",
+        "at": 0,
+        "screenplayHash": "63765785181974ed3db296295a930d312293f7153e18fc09446d3918c75a13a1"
+      }
+    }
+  ]
+}

@@ -121,16 +121,19 @@ async function walk(
 export async function writeArchiveFromDirectory(
   directory: string,
   output: string,
+  options: { exclude?: (name: string) => boolean } = {},
 ): Promise<void> {
   if (!(await stat(directory)).isDirectory())
     throw new Error(`not a directory: ${directory}`);
   await mkdir(path.dirname(path.resolve(output)), { recursive: true });
   const zip = new yazl.ZipFile();
-  for (const file of await walk(directory))
+  for (const file of await walk(directory)) {
+    if (options.exclude?.(file.name)) continue;
     zip.addFile(file.absolute, file.name, {
       mtime: new Date(0),
       mode: 0o100644,
     });
+  }
   await new Promise<void>((resolve, reject) => {
     zip.outputStream
       .pipe(createWriteStream(output))

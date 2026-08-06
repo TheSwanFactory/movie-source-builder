@@ -2,18 +2,30 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { format } from "prettier";
 import { z } from "zod";
 import {
-  msbManifestSchema,
+  dailiesSchema,
+  msbHeaderSchema,
   msbcFileSchema,
-  msboOutputSchema,
+  referencesIndexSchema,
+  screenplaySchema,
+  shootSchema,
+  shotlistSchema,
 } from "../dist/schema.js";
 
 await mkdir("schemas", { recursive: true });
+// io: "input" — these schemas validate authored documents, where zod
+// .default() fields are optional (the output type would require them).
 const writeSchema = async (file, schema) =>
   writeFile(
     file,
-    await format(JSON.stringify(z.toJSONSchema(schema)), { parser: "json" }),
+    await format(JSON.stringify(z.toJSONSchema(schema, { io: "input" })), {
+      parser: "json",
+    }),
   );
 
-await writeSchema("schemas/msb-manifest.schema.json", msbManifestSchema);
+await writeSchema("schemas/msb-header.schema.json", msbHeaderSchema);
+await writeSchema("schemas/msb-screenplay.schema.json", screenplaySchema);
+await writeSchema("schemas/msb-references.schema.json", referencesIndexSchema);
+await writeSchema("schemas/msb-shotlist.schema.json", shotlistSchema);
+await writeSchema("schemas/msb-shoot.schema.json", shootSchema);
+await writeSchema("schemas/msb-dailies.schema.json", dailiesSchema);
 await writeSchema("schemas/msbc-configuration.schema.json", msbcFileSchema);
-await writeSchema("schemas/msbo-output.schema.json", msboOutputSchema);

@@ -37,32 +37,30 @@ msb verify-auth --config msbc/fal-hailuo-02-standard.msbc
 
 Omit `--config` to verify the packaged default profile. A successful response confirms authentication. It does not confirm that a particular model is enabled, funded, or callable for the account. The command never prints the key.
 
-## Render: image-to-video
+## Shoot: image-to-video
 
-Each `image-to-video` fal shot must declare exactly one explicit PNG, JPEG, WebP, or AVIF path as `references.composition`. Pack the source and render it with any `image-to-video` fal profile:
+Each `image-to-video` fal shot must declare exactly one explicit PNG, JPEG, WebP, or AVIF path as `references.composition` in the shot list.
 
-That composition reference is the **only image uploaded for the request**. Character, location, and prop `reference` fields are not composited and are not separately sent to fal. For a multi-character shot, create one canonical image containing the complete cast and setting, then place its path in `shot.references.composition`:
+That composition reference is the **only image uploaded for the request**. Cast model sheets are not composited and are not separately sent to fal. For a multi-character shot, use one board containing the complete cast and setting, then place its path in the shot's `references.composition`:
 
 ```json
 {
   "characters": ["agent-86", "agent-99", "agent-13"],
   "location": "ai-control-center",
-  "references": { "composition": "references/control-center-ensemble.png" }
+  "references": { "composition": "references/t0000.0-rally.png" }
 }
 ```
 
-Do not use an isolated prop, location plate, or single-character sheet as the composition reference when the generated frame must contain an ensemble.
+Do not use an isolated prop, location plate, or single-character model sheet as the composition reference when the generated frame must contain an ensemble.
 
 ```bash
-msb pack path/to/source --out movie.msb
-msb validate movie.msb --config msbc/fal-hailuo-02-standard.msbc
-msb render movie.msb \
+msb shoot path/to/project --config msbc/fal-hailuo-02-standard.msbc --dry-run
+msb shoot path/to/project \
   --config msbc/fal-hailuo-02-standard.msbc \
-  --out movie.msbo \
   --max-cost 1.00
 ```
 
-Use `--dry-run` first to inspect planned requests and estimated cost without uploading assets or calling fal.
+The dry run plans and estimates with zero provider requests and zero writes; the real shoot appends `shoots/NNNN-fal-hailuo-02-standard.json` and renders takes into `takes/`.
 
 ## Render: reference-to-video (Veo 3.1 Fast)
 
@@ -72,25 +70,23 @@ Use `--dry-run` first to inspect planned requests and estimated cost without upl
 {
   "characters": ["agent-86", "agent-99", "agent-13"],
   "location": "ai-control-center",
-  "duration": 8,
+  "span": [0, 8],
   "references": {
     "identity": [
-      "characters/agent-86.png",
-      "characters/agent-99.png",
-      "characters/agent-13.png"
+      "references/agent-86.png",
+      "references/agent-99.png",
+      "references/agent-13.png"
     ]
   }
 }
 ```
 
-Veo 3.1 Fast reference-to-video only supports 8-second shots. Every identity image is uploaded and sent as `image_urls`; the endpoint generates native audio by default. See [`examples/skit-poc-reference/msb.json`](../examples/skit-poc-reference/msb.json) for a complete three-character example.
+Veo 3.1 Fast reference-to-video only supports 8-second shots — a shot list whose spans are not all 8 seconds fails at plan time with a recorded `engine-compatibility` finding. Every identity image is uploaded and sent as `image_urls`; the endpoint generates native audio by default. See [`examples/smoke-test-reference`](../examples/smoke-test-reference) for a minimal example.
 
 ```bash
-msb pack path/to/source --out movie.msb
-msb validate movie.msb --config msbc/fal-veo-3.1-fast-reference.msbc
-msb render movie.msb \
+msb shoot path/to/project --config msbc/fal-veo-3.1-fast-reference.msbc --dry-run
+msb shoot path/to/project \
   --config msbc/fal-veo-3.1-fast-reference.msbc \
-  --out movie.msbo \
   --max-cost 1.00
 ```
 
@@ -98,9 +94,9 @@ Uploading three faces to one request improves per-shot identity consistency over
 
 ## Preflight and failure ordering
 
-Configured validation and every render preflight check the selected renderer's registered capabilities before doing anything paid: that the msbc-declared `renderer.mode` matches the model's registered mode, that every reference role provided by a shot is accepted by that mode with an in-range count, that every reference file extension is supported and its bytes match the declared raster format, that the model adapter is registered, and that the shot duration is supported. Any mismatch fails at plan creation — before authentication, pricing, upload, or generation.
+Every shoot's plan checks the selected renderer's registered capabilities before doing anything paid: that the msbc-declared `renderer.mode` matches the model's registered mode, that every reference role provided by a shot is accepted by that mode with an in-range count, that every reference file extension is supported and its bytes match the declared raster format, and that the model adapter is registered. Any mismatch fails at plan creation — before authentication, pricing, upload, or generation. A shot list whose spans fall outside the engine's duration menu also fails at plan time, and that failure is itself recorded to the ledger as a shoot with a structured `engine-compatibility` finding (`msb inspect <folder> --findings`).
 
-Each shot is currently an independent request regardless of mode. `continuity` is added to the prompt, but no adapter currently passes the last frame or video context of one shot into the next. Reusing consistent identity references or a canonical ensemble image, and stating concrete identity invariants in `continuity`, improves consistency but does not guarantee it. Read the complete [quick start and continuity guide](../docs/01-quick-start.md#designing-for-continuity-todays-real-limits) before a paid render.
+Each shot is an independent request regardless of mode, unless it opts into chaining (`chainFrom`, `image-to-video` only), which verifies the predecessor's real last frame against the shot's own composition board. `continuity` is added to the prompt; it is guidance, not an identity lock. Reusing consistent identity references or a canonical ensemble board, and stating concrete identity invariants in `continuity`, improves consistency but does not guarantee it. Read the [quick start](../docs/01-quick-start.md) before a paid shoot.
 
 ## Engine profiles
 

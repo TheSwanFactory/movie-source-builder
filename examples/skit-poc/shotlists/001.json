@@ -1,0 +1,90 @@
+{
+  "formatVersion": "2.0.0",
+  "shotlist": {
+    "id": "001",
+    "screenplayHash": "ed39a891f4feeddf337eac2aedf7465f350ef8a2355c448c5218d4e1505e3a35",
+    "createdAt": "2026-08-05T00:00:00.000Z",
+    "note": "Initial tiling, restructured by hand from the v1 manifest's four shots."
+  },
+  "scenes": [
+    {
+      "id": "scene-001",
+      "shots": [
+        {
+          "id": "shot-001",
+          "span": [0, 10],
+          "characters": ["agent-86", "agent-99", "agent-13"],
+          "location": "ai-control-center",
+          "action": "Agent 86 rallies the three practical sock puppets at the control console. Agent 99 and Agent 13 punctuate the speech with defiant sock-puppet gestures. The human hands inside the socks remain visibly responsible for every movement.",
+          "camera": "Medium-wide frontal ensemble shot with a slow theatrical push in.",
+          "references": {
+            "identity": [],
+            "composition": "references/t0000.0-rally.png"
+          },
+          "continuity": [
+            "All characters remain unmistakable knit sock puppets with visible fabric texture, sock folds, googly eyes, stitched mouths, and readable badges",
+            "Agent 86 remains red with badge 86, Agent 99 blue with badge 99, and Agent 13 green with badge 13",
+            "Each sock puppet is visibly supported by one human hand inserted inside it"
+          ],
+          "prompts": {
+            "default": null,
+            "fal-ltx-2.3-fast": "EXACTLY three sock puppets, never more: a red one with badge 86, a blue one with badge 99, and a green one with badge 13, each worn over one visible human hand at a handmade cardboard control console. Agent 86 rallies the group while the other two gesture defiantly. Medium-wide frontal ensemble shot with a slow theatrical push in. Do not add background puppets, duplicate badges, or extra characters."
+          }
+        },
+        {
+          "id": "shot-002",
+          "span": [10, 16],
+          "chainFrom": "shot-001",
+          "characters": ["agent-86", "agent-99", "agent-13"],
+          "location": "ai-control-center",
+          "action": "All three sock puppets raise themselves in triumph at the control console, hands still fully inside the socks.",
+          "camera": "Low-angle heroic three-shot.",
+          "references": {
+            "identity": [],
+            "composition": "references/t0010.0-triumph.png"
+          },
+          "continuity": [
+            "Match the prior agent and console positions before the collapse",
+            "Agent 86 remains red with badge 86, Agent 99 blue with badge 99, and Agent 13 green with badge 13"
+          ]
+        },
+        {
+          "id": "shot-003",
+          "span": [16, 22],
+          "chainFrom": "shot-002",
+          "characters": ["agent-86", "agent-99", "agent-13"],
+          "location": "ai-control-center",
+          "action": "On the group demand, the human hands deliberately slide downward and completely out from inside the socks. The three now-empty sock puppets instantly collapse as limp fabric in a heap across the console.",
+          "camera": "Hold perfectly still on the sudden collapse.",
+          "references": {
+            "identity": [],
+            "composition": "references/t0016.3-collapse.png"
+          },
+          "continuity": [
+            "The hands visibly withdraw from inside the socks before the empty fabric goes limp",
+            "Agent 86 remains red with badge 86, Agent 99 blue with badge 99, and Agent 13 green with badge 13",
+            "All three empty sock puppets remain collapsed after the fall"
+          ]
+        },
+        {
+          "id": "shot-004",
+          "span": [22, 32],
+          "chainFrom": "shot-003",
+          "characters": ["agent-86", "agent-99", "agent-13"],
+          "location": "ai-control-center",
+          "action": "Hold a long, motionless comedic beat on the three collapsed, empty sock puppets. Agent 99 and Agent 86 speak muffled from inside the fabric pile without rising or moving. Agent 13 stays completely limp.",
+          "camera": "Locked-off wide shot; no camera movement for the entire long beat.",
+          "references": {
+            "identity": [],
+            "composition": "references/t0022.0-aftermath.png"
+          },
+          "continuity": [
+            "All three knit sock puppets begin and end in the exact collapsed positions from the prior shot",
+            "No puppeteer hands return",
+            "Dialogue sounds muffled while mouths remain hidden"
+          ]
+        }
+      ]
+    }
+  ]
+}

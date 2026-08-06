@@ -9,12 +9,13 @@ are no separate, un-numbered steps. See
 how these files, the scripts that read them, and image-generating vs.
 non-image-generating agents are meant to interact.
 
-A couple of these files are also read directly (and hashed for provenance) by
+Two of these files (the model-sheet and board templates, steps 4 and 5) are
+also read directly (and hashed for provenance) by
 `scripts/generate-storyboard-prompts.mjs`, which strips each file's
-frontmatter before embedding its instruction, verbatim, into a generated
-per-shot or per-dialogue-event prompt plan. That mechanism is independent of
-the orchestrator protocol below — it doesn't change how those files are
-discovered or dispatched as steps.
+frontmatter before embedding its instruction, verbatim, into the generated
+reference-image request plan for a project folder. That mechanism is
+independent of the orchestrator protocol below — it doesn't change how those
+files are discovered or dispatched as steps.
 
 ## Orchestrator protocol
 

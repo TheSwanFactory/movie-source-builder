@@ -2,17 +2,18 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  msbManifestSchema,
+  cueSchema,
+  dailiesSchema,
+  msbHeaderSchema,
   msbcConfigurationSchema,
   msbcFileSchema,
-  msboOutputSchema,
+  referenceImageSchema,
+  referencesIndexSchema,
+  screenplaySchema,
+  shootSchema,
+  shotlistSchema,
 } from "../src/schema.js";
-import {
-  createPlan,
-  loadMsbc,
-  renderMovie,
-  validateManifestSemantics,
-} from "../src/render.js";
+import { loadMsbc } from "../src/render.js";
 
 const runnableConfigurations = readdirSync("msbc", {
   withFileTypes: true,
@@ -20,58 +21,181 @@ const runnableConfigurations = readdirSync("msbc", {
   .filter((entry) => entry.isFile() && entry.name.endsWith(".msbc"))
   .map((entry) => path.resolve("msbc", entry.name));
 
-const manifest = JSON.parse(
-  readFileSync("examples/skit-poc/msb.json", "utf8"),
-) as Record<string, unknown>;
-const configuration = JSON.parse(
-  readFileSync("msbc/mock.msbc", "utf8"),
-) as Record<string, unknown>;
+const readJson = (file: string): Record<string, unknown> =>
+  JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
 
-describe("schemas", () => {
-  it("accepts the example manifest", () => {
-    const parsed = msbManifestSchema.parse(manifest);
-    expect(parsed.shots).toHaveLength(4);
+describe("v2 project schemas", () => {
+  it("accepts the example project header, screenplay, references, and shot list", () => {
+    const header = msbHeaderSchema.parse(
+      readJson("examples/skit-poc/msb.json"),
+    );
+    expect(header.cast).toHaveLength(4);
+    expect(header.cast.map((member) => member.kind)).toContain("location");
+    const screenplay = screenplaySchema.parse(
+      readJson("examples/skit-poc/screenplay.json"),
+    );
+    expect(screenplay.screenplay.duration).toBe(32);
+    expect(screenplay.scenes[0]!.cues.length).toBeGreaterThan(5);
+    const references = referencesIndexSchema.parse(
+      readJson("examples/skit-poc/references/references.json"),
+    );
     expect(
-      parsed.characters.every((character) =>
-        character.description.includes("sock puppet"),
-      ),
-    ).toBe(true);
+      references.images.filter((image) => image.kind === "board"),
+    ).toHaveLength(4);
+    const shotlist = shotlistSchema.parse(
+      readJson("examples/skit-poc/shotlists/001.json"),
+    );
+    expect(shotlist.scenes[0]!.shots).toHaveLength(4);
+    expect(shotlist.scenes[0]!.shots[0]!.prompts["fal-ltx-2.3-fast"]).toMatch(
+      /EXACTLY three/,
+    );
   });
 
-  it("rejects unsupported major versions", () => {
+  it("rejects v1 format versions", () => {
+    const header = readJson("examples/skit-poc/msb.json");
     expect(() =>
-      msbManifestSchema.parse({ ...manifest, formatVersion: "2.0.0" }),
+      msbHeaderSchema.parse({ ...header, formatVersion: "1.1.0" }),
     ).toThrow();
   });
 
-  it("rejects duplicate entity ids", () => {
-    const parsed = msbManifestSchema.parse(manifest);
+  it("rejects a point cue with a span and a span cue with a point", () => {
+    const base = { id: "c001", text: "x" };
     expect(() =>
-      validateManifestSemantics({
-        ...parsed,
-        characters: [...parsed.characters, parsed.characters[0]!],
+      cueSchema.parse({
+        ...base,
+        kind: "action",
+        span: [0, 1],
       }),
-    ).toThrow("duplicate character id");
+    ).toThrow();
+    expect(() =>
+      cueSchema.parse({
+        ...base,
+        kind: "dialogue",
+        at: 0,
+      }),
+    ).toThrow();
+    expect(() =>
+      cueSchema.parse({
+        ...base,
+        kind: "dialogue",
+        span: [2, 1],
+      }),
+    ).toThrow();
   });
 
-  it("rejects dialogue from an unknown or absent character", () => {
-    const parsed = msbManifestSchema.parse(manifest);
-    const first = parsed.shots[0]!;
+  it("requires boards to carry anchors and model sheets not to", () => {
+    const element = referenceImageSchema;
     expect(() =>
-      validateManifestSemantics({
-        ...parsed,
-        shots: [
-          {
-            ...first,
-            dialogue: [
-              { character: "unknown", text: "Hello", start: 0, end: 1 },
-            ],
-          },
-          ...parsed.shots.slice(1),
-        ],
+      element.parse({ file: "references/x.png", kind: "board" }),
+    ).toThrow(/requires a cue anchor/);
+    expect(() =>
+      element.parse({
+        file: "references/x.png",
+        kind: "model-sheet",
+        anchor: { cue: "c001", at: 0, screenplayHash: "0".repeat(64) },
       }),
-    ).toThrow("dialogue references unknown character");
+    ).toThrow(/timeless/);
   });
+
+  it("rejects paths escaping the project root", () => {
+    const element = referenceImageSchema;
+    expect(() =>
+      element.parse({ file: "../outside.png", kind: "model-sheet" }),
+    ).toThrow();
+    expect(() =>
+      element.parse({ file: "/absolute.png", kind: "model-sheet" }),
+    ).toThrow();
+  });
+
+  it("round-trips a shoot ledger entry", () => {
+    const configuration = msbcConfigurationSchema.parse({
+      version: "1.0.0",
+      output: { aspectRatio: "16:9", width: 512, height: 288, frameRate: 24 },
+      renderer: {
+        provider: "mock",
+        model: "lavfi-color",
+        requiredEnvironmentVariables: [],
+      },
+    });
+    const shoot = shootSchema.parse({
+      formatVersion: "2.0.0",
+      shoot: {
+        id: "0002-hailuo",
+        createdAt: "2026-08-05T04:02:11.000Z",
+        status: "complete",
+      },
+      shotlist: { id: "002", hash: "a".repeat(64) },
+      engine: {
+        configName: "fal-hailuo-02-standard",
+        hash: "b".repeat(64),
+        resolved: configuration,
+      },
+      tool: { name: "movie-source-builder", version: "0.7.0" },
+      costs: { estimated: 1.86, actual: 0.62 },
+      reused: [
+        {
+          shot: "shot-001",
+          take: "shot-001.t02",
+          from: "0001-ltx",
+          mediaHash: "c".repeat(64),
+          cacheKey: "d".repeat(64),
+        },
+      ],
+      takes: [
+        {
+          shot: "shot-002",
+          take: "shot-002.t03",
+          status: "rendered",
+          cacheKey: "e".repeat(64),
+          media: "takes/shot-002.t03.mp4",
+          mediaHash: "f".repeat(64),
+          lastFrame: "takes/shot-002.t03.last.png",
+          chainScore: 0.91,
+          requestId: "fal-123",
+          cost: 0.62,
+          error: null,
+        },
+      ],
+      findings: [
+        {
+          scope: "engine-compatibility",
+          engine: "fal/veo-3.1-fast image-to-video",
+          claim: "duration menu is 6s/8s only",
+          appliesTo: ["shot-001"],
+        },
+      ],
+      warnings: [],
+    });
+    expect(shoot.takes[0]!.warnings).toEqual([]);
+    expect(shoot.findings[0]!.scope).toBe("engine-compatibility");
+  });
+
+  it("round-trips a dailies ledger entry and rejects malformed take ids", () => {
+    const dailies = dailiesSchema.parse({
+      formatVersion: "2.0.0",
+      dailies: { id: "0001", at: "2026-08-05T04:20:00.000Z", by: "author" },
+      verdicts: [
+        {
+          take: "shot-001.t01",
+          verdict: "rejected",
+          notes: "takes/shot-001.t01.notes.md",
+        },
+        { take: "shot-001.t02", verdict: "circled" },
+      ],
+    });
+    expect(dailies.verdicts).toHaveLength(2);
+    expect(() =>
+      dailiesSchema.parse({
+        formatVersion: "2.0.0",
+        dailies: { id: "0001", at: "2026-08-05T04:20:00.000Z", by: "author" },
+        verdicts: [{ take: "not-a-take", verdict: "circled" }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("msbc schemas (unchanged from v1)", () => {
+  const configuration = readJson("msbc/mock.msbc");
 
   it("accepts every MSBC source file", () => {
     const files = readdirSync("msbc", {
@@ -119,40 +243,6 @@ describe("schemas", () => {
       });
   });
 
-  it("plans the smoke-test MSB with every runnable profile", async () => {
-    const environment = new Map<string, string | undefined>();
-    try {
-      for (const file of runnableConfigurations) {
-        const { configuration } = await loadMsbc(file);
-        const isReferenceMode =
-          configuration.renderer.mode === "reference-to-video";
-        const bundle = isReferenceMode
-          ? "examples/smoke-test-reference.msb"
-          : "examples/smoke-test.msb";
-        const expectedDuration = isReferenceMode ? 8 : 6;
-        const plan = await createPlan(bundle, file);
-        expect(plan.units).toHaveLength(1);
-        expect(plan.units[0]?.duration).toBe(expectedDuration);
-        for (const name of plan.configuration.renderer
-          .requiredEnvironmentVariables) {
-          if (!environment.has(name)) environment.set(name, process.env[name]);
-          process.env[name] = "ci-dry-run-placeholder";
-        }
-        await expect(
-          renderMovie(bundle, {
-            configuration: file,
-            output: "unused-dry-run.msbo",
-            dryRun: true,
-          }),
-        ).resolves.toMatchObject({ units: [{ duration: expectedDuration }] });
-      }
-    } finally {
-      for (const [name, value] of environment)
-        if (value === undefined) delete process.env[name];
-        else process.env[name] = value;
-    }
-  });
-
   it("validates required renderer environment variable names", () => {
     const renderer = configuration.renderer as Record<string, unknown>;
     expect(() =>
@@ -164,9 +254,5 @@ describe("schemas", () => {
         },
       }),
     ).toThrow();
-  });
-
-  it("requires complete output structure", () => {
-    expect(() => msboOutputSchema.parse({ formatVersion: "1.0.0" })).toThrow();
   });
 });

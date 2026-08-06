@@ -1,35 +1,39 @@
 #!/usr/bin/env node
-import { readFile, stat } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
-import { readArchive, writeArchiveFromDirectory } from "./archive.js";
-import { exportMovie } from "./export.js";
+import { createAnimatic } from "./animatic.js";
+import { createCut } from "./cut.js";
+import { appendVerdict, listUnreviewed } from "./dailies.js";
+import { collectGarbage } from "./gc.js";
 import {
-  defaultExportPath,
-  defaultRenderPaths,
-  defaultStoryboardPath,
-} from "./paths.js";
+  aggregateFindings,
+  formatFindings,
+  formatProjectReport,
+  formatShotHistory,
+  inspectProject,
+  renderScreenplayText,
+  shotHistory,
+} from "./inspect.js";
+import { packProject } from "./pack.js";
 import {
-  loadMsb,
-  loadMsbc,
-  renderMovie,
-  referencedAssets,
-  validateManifestSemantics,
-  validateRendererInputs,
-  verifyRendererAuthentication,
-} from "./render.js";
-import { msbManifestSchema, msboOutputSchema } from "./schema.js";
-import { approveStoryboard, createStoryboard } from "./storyboard.js";
+  computeLatest,
+  ingestProject,
+  listShoots,
+  loadScreenplay,
+} from "./project.js";
+import { loadMsbc, verifyRendererAuthentication } from "./render.js";
+import { createProject } from "./scaffold.js";
+import { runShoot } from "./shoot.js";
 
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 );
 const program = new Command()
   .name("msb")
-  .description("Build and render Movie Source Bundles")
+  .description("Build and shoot Movie Source Builder project folders")
   .version(packageJson.version);
 if (existsSync(".env")) loadEnvFile(".env");
 const DEFAULT_CONFIGURATION = path.resolve(
@@ -44,106 +48,263 @@ const number = (value: string) => {
 };
 
 program
-  .command("pack")
-  .description("Pack a source directory into an .msb")
-  .argument("<directory>")
-  .requiredOption("-o, --out <file>")
-  .action(async (directory, options) => {
-    await loadManifestDirectory(directory);
-    await writeArchiveFromDirectory(directory, options.out);
-    console.log(`Wrote ${options.out}`);
+  .command("create")
+  .description("Scaffold a project folder around a verbatim draft screenplay")
+  .argument("<folder>")
+  .requiredOption("--draft <file>", "the author's screenplay, any name/format")
+  .action(async (folder, options) => {
+    const result = await createProject(folder, options.draft);
+    console.log(
+      [
+        `Created ${result.root}`,
+        `Draft copied verbatim to ${result.draft}`,
+        "Next: a Producer canonicalizes the draft into screenplay.json and",
+        "fills msb.json's cast, then `msb ingest` validates the result.",
+      ].join("\n"),
+    );
   });
 
 program
-  .command("validate")
-  .description("Validate a Movie Source Bundle")
-  .argument("<file>")
+  .command("ingest")
+  .description(
+    "Validate the canonical screenplay, cast, and references (schema + semantics)",
+  )
+  .argument("<folder>")
+  .action(async (folder) => {
+    const project = await ingestProject(folder);
+    console.log(
+      `Ingested ${project.header.project.title}: ${project.screenplay.scenes.length} scene(s), ${project.screenplay.scenes.reduce((sum, scene) => sum + scene.cues.length, 0)} cue(s), ${project.screenplay.screenplay.duration}s, cast of ${project.header.cast.length}`,
+    );
+  });
+
+program
+  .command("animatic")
+  .description(
+    "Assemble the zero-cost review movie from screenplay cues and boards",
+  )
+  .argument("<folder>")
+  .option(
+    "-o, --out <file>",
+    "explicit output path; defaults to cuts/animatic.mp4",
+  )
+  .action(async (folder, options) => {
+    const output = await createAnimatic(folder, { out: options.out });
+    console.log(`Wrote ${output}`);
+  });
+
+program
+  .command("shoot")
+  .description(
+    "Run one shoot: render takes into the pool and append a shoot to the ledger",
+  )
+  .argument("<folder>")
   .option(
     "-c, --config <file>",
-    "also validate renderer-specific inputs against an MSBC",
+    "Movie Source Builder Configuration (.msbc); defaults to packaged default.msbc",
   )
-  .action(async (file, options) => {
-    const loaded = await loadMsb(file);
-    if (options.config) {
-      const { configuration } = await loadMsbc(options.config);
-      validateRendererInputs(loaded.manifest, loaded.entries, configuration);
+  .option(
+    "--dry-run",
+    "plan and price without writing or contacting a provider",
+  )
+  .option("--max-cost <usd>", "maximum new generation cost", number)
+  .option("--concurrency <number>", "parallel requests", number, 2)
+  .option("--fresh", "ignore reusable takes and render every shot")
+  .action(async (folder, options) => {
+    const result = await runShoot(folder, {
+      configuration: options.config ?? DEFAULT_CONFIGURATION,
+      dryRun: options.dryRun,
+      maxCost: options.maxCost,
+      concurrency: options.concurrency,
+      fresh: options.fresh,
+    });
+    if (options.dryRun) {
+      console.log(
+        JSON.stringify(
+          {
+            shotlist: result.plan.shotlistId,
+            engine: result.plan.configName,
+            shots: result.plan.units.map((unit) => ({
+              id: unit.shot.id,
+              span: unit.shot.span,
+              duration: unit.duration,
+              reused: unit.reuse !== undefined,
+              estimatedCost: unit.estimatedCost,
+              ...(unit.chainFrom !== undefined
+                ? { chainFrom: unit.chainFrom }
+                : {}),
+            })),
+            findings: result.plan.findings,
+            planValid: result.plan.planValid,
+            estimatedCost: result.plan.estimatedCost,
+            providerRequests: 0,
+          },
+          null,
+          2,
+        ),
+      );
+      if (!result.plan.planValid) process.exitCode = 3;
+      return;
     }
     console.log(
-      `Valid MSB: ${loaded.manifest.project.title} (${loaded.manifest.shots.length} shots)${options.config ? ` for ${options.config}` : ""}`,
+      `Wrote ${result.file}: ${result.shoot!.takes.length} new take(s), ${result.shoot!.reused.length} reused, $${result.shoot!.costs.actual.toFixed(2)}`,
+    );
+  });
+
+program
+  .command("dailies")
+  .description("List rendered takes no review session has judged yet")
+  .argument("<folder>")
+  .option("--json")
+  .action(async (folder, options) => {
+    const unreviewed = await listUnreviewed(folder);
+    if (options.json) {
+      console.log(JSON.stringify(unreviewed, null, 2));
+      return;
+    }
+    console.log(
+      unreviewed.length === 0
+        ? "No unreviewed takes."
+        : unreviewed
+            .map((take) => `${take.take}  (shoot ${take.shootId})`)
+            .join("\n"),
+    );
+  });
+
+program
+  .command("circle")
+  .description("Append a review verdict: circle a keeper, or --reject it")
+  .argument("<folder>")
+  .requiredOption("--take <id>", "take id, e.g. shot-001.t02")
+  .option("--reject", "record a rejected verdict instead of circling")
+  .option("--notes <file>", "file whose contents become takes/<take>.notes.md")
+  .option("--by <name>", "reviewer recorded in the dailies entry")
+  .action(async (folder, options) => {
+    const result = await appendVerdict(folder, options.take, {
+      verdict: options.reject ? "rejected" : "circled",
+      notesFile: options.notes,
+      by: options.by,
+    });
+    console.log(
+      `Wrote ${result.file}: ${options.take} ${options.reject ? "rejected" : "circled"}${result.notes ? ` (notes: ${result.notes})` : ""}`,
+    );
+  });
+
+program
+  .command("cut")
+  .description(
+    "Assemble the deliverable cut from circled (or newest unrejected) takes",
+  )
+  .argument("<folder>")
+  .option(
+    "--shoot <id>",
+    "shoot to realize; defaults to the latest complete shoot",
+  )
+  .option(
+    "-o, --out <file>",
+    "explicit output path; defaults to cuts/<shoot>.mp4",
+  )
+  .action(async (folder, options) => {
+    const result = await createCut(folder, {
+      shootId: options.shoot,
+      out: options.out,
+    });
+    console.log(
+      `Wrote ${result.file} (${result.takes.map((take) => take.take).join(", ")})`,
+    );
+  });
+
+program
+  .command("latest")
+  .description(
+    "Print the latest shot list, latest complete shoot, and current take per shot",
+  )
+  .argument("<folder>")
+  .option("--json")
+  .action(async (folder, options) => {
+    const latest = await computeLatest(folder);
+    if (options.json) {
+      console.log(JSON.stringify(latest, null, 2));
+      return;
+    }
+    console.log(
+      [
+        `Latest shot list: ${latest.shotlist ?? "none"}`,
+        `Latest complete shoot: ${latest.shoot ?? "none"}`,
+        ...latest.current.map(
+          (entry) =>
+            `  ${entry.shot}: ${entry.take ?? "no eligible take"}${entry.take ? ` (${entry.standing})` : ""}`,
+        ),
+      ].join("\n"),
+    );
+  });
+
+program
+  .command("gc")
+  .description(
+    "Delete reclaimable take media (.mp4 only) — never ledger JSON, notes, or last frames",
+  )
+  .argument("<folder>")
+  .option("--dry-run", "report what would be deleted without deleting")
+  .action(async (folder, options) => {
+    const report = await collectGarbage(folder, { dryRun: options.dryRun });
+    const verb = options.dryRun ? "Would reclaim" : "Reclaimed";
+    console.log(
+      [
+        `${verb} ${report.reclaimed.length} take video(s):`,
+        ...report.reclaimed.map((media) => `  ${media}`),
+        `Kept ${report.kept.length}:`,
+        ...report.kept.map((item) => `  ${item.media} — ${item.reason}`),
+      ].join("\n"),
     );
   });
 
 program
   .command("inspect")
-  .description("Inspect an .msb, .msbc, or .msbo")
-  .argument("<file>")
+  .description("Inspect a project folder or an .msbc engine configuration")
+  .argument("<target>")
   .option("--json")
-  .action(async (file, options) => {
-    if (file.endsWith(".msbo")) {
-      const entries = await readArchive(file);
-      const raw = entries.get("msbo.json");
-      if (!raw) throw new Error("msbo.json is required");
-      const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
-      console.log(
-        options.json
-          ? JSON.stringify(output, null, 2)
-          : output.kind === "storyboard" && output.storyboard
-            ? `${output.source.title}\nKind: storyboard\nStatus: ${output.status}\nDuration: ${output.storyboard.duration}s\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nWarnings: ${output.warnings.length}\nApproval: ${output.storyboard.approval ? "approved" : "unapproved"}\nCost: $0.00`
-            : `${output.source.title}\nKind: render\nStatus: ${output.status}\nShots: ${output.shots.filter((s) => s.status === "complete").length}/${output.shots.length}\nCost: $${output.actualCost.toFixed(2)}`,
-      );
-    } else if (file.endsWith(".msbc")) {
-      const { configuration, configurationHash } = await loadMsbc(file);
+  .option("--findings", "aggregate structured findings across all shoots")
+  .option("--shot <id>", "one shot's full take history across engines")
+  .option("--screenplay", "render the canonical screenplay as readable text")
+  .action(async (target, options) => {
+    if (target.endsWith(".msbc")) {
+      const { configuration, configurationHash } = await loadMsbc(target);
       console.log(
         options.json
           ? JSON.stringify({ ...configuration, configurationHash }, null, 2)
           : `Movie Source Builder Configuration\nProvider: ${configuration.renderer.provider}\nModel: ${configuration.renderer.model}\nRequired environment: ${configuration.renderer.requiredEnvironmentVariables.join(", ") || "none"}\nOutput: ${configuration.output.width}x${configuration.output.height} @ ${configuration.output.frameRate}fps\nConfiguration: ${configurationHash}`,
       );
-    } else {
-      const { manifest, sourceHash } = await loadMsb(file);
+      return;
+    }
+    if (options.screenplay) {
+      const { screenplay } = await loadScreenplay(target);
+      console.log(renderScreenplayText(screenplay));
+      return;
+    }
+    if (options.findings) {
+      const findings = aggregateFindings(await listShoots(target));
       console.log(
         options.json
-          ? JSON.stringify({ ...manifest, sourceHash }, null, 2)
-          : `${manifest.project.title}\nShots: ${manifest.shots.length}\nDuration: ${manifest.shots.reduce((sum, s) => sum + s.duration, 0)}s\nSource: ${sourceHash}`,
+          ? JSON.stringify(findings, null, 2)
+          : formatFindings(findings),
       );
+      return;
     }
-  });
-
-program
-  .command("storyboard")
-  .description("Create a deterministic, zero-cost local storyboard .msbo")
-  .argument("<file>")
-  .option(
-    "-o, --out <file>",
-    "explicit output path; defaults to a file next to the source bundle",
-  )
-  .option(
-    "--timing-voices",
-    "use disposable macOS system voices instead of silence",
-  )
-  .option("--force", "overwrite even an already-approved storyboard")
-  .action(async (file, options) => {
-    const output = options.out ?? defaultStoryboardPath(file);
-    if (existsSync(output) && !options.force) {
-      const approval = await readStoryboardApproval(output);
-      if (approval)
-        throw new Error(
-          `output exists and is approved: ${output}; pass --force to overwrite`,
-        );
+    if (options.shot) {
+      const history = await shotHistory(target, options.shot);
+      console.log(
+        options.json
+          ? JSON.stringify(history, null, 2)
+          : formatShotHistory(options.shot, history),
+      );
+      return;
     }
-    await createStoryboard(file, output, {
-      timingVoices: options.timingVoices,
-    });
-    console.log(`Wrote ${output}`);
-  });
-
-program
-  .command("approve")
-  .description("Approve a storyboard against its unchanged source bundle")
-  .argument("<file>")
-  .requiredOption("-s, --source <file>")
-  .action(async (file, options) => {
-    await approveStoryboard(file, options.source);
-    console.log(`Approved ${file}`);
+    const report = await inspectProject(target);
+    console.log(
+      options.json
+        ? JSON.stringify(report, null, 2)
+        : formatProjectReport(report),
+    );
   });
 
 program
@@ -165,147 +326,21 @@ program
     );
   });
 
-function renderOptions(
-  command: Command,
-  forceDescription = "ignore reusable output and render every shot",
-): Command {
-  return command
-    .option(
-      "-o, --out <file>",
-      "explicit output path; defaults to a file next to the source bundle",
-    )
-    .option(
-      "-c, --config <file>",
-      "Movie Source Builder Configuration (.msbc); defaults to packaged default.msbc",
-    )
-    .option("--dry-run")
-    .option("--work-dir <path>")
-    .option("--concurrency <number>", "parallel requests", number, 2)
-    .option("--max-cost <usd>", "maximum new generation cost", number)
-    .option("--force", forceDescription)
-    .option("--fresh", "ignore reusable output and render every shot")
-    .option("--keep-work-dir");
-}
-
-renderOptions(
-  program
-    .command("render")
-    .description("Render an .msb with an .msbc into an .msbo")
-    .argument("<file>"),
-).action(async (file, options) => {
-  const configuration = options.config ?? DEFAULT_CONFIGURATION;
-  const defaults = defaultRenderPaths(file, configuration);
-  const output = options.out ?? defaults.msbo;
-  const plan = await renderMovie(file, {
-    output,
-    configuration,
-    dryRun: options.dryRun,
-    maxCost: options.maxCost,
-    workDir: options.workDir,
-    force: options.force || options.fresh,
-    concurrency: options.concurrency,
-    keepWorkDir: options.keepWorkDir,
-  });
-  if (options.dryRun)
-    console.log(
-      JSON.stringify(
-        {
-          shots: plan.units,
-          estimatedCost: plan.estimatedCost,
-          providerRequests: 0,
-          output,
-        },
-        null,
-        2,
-      ),
-    );
-  else console.log(`Wrote ${output}`);
-});
-
 program
-  .command("export")
-  .description("Export an .msbo into an MP4 without provider calls")
-  .argument("<file>")
+  .command("pack")
+  .description("Pack a project folder into a transport .msb archive")
+  .argument("<folder>")
+  .option("-o, --out <file>", "output archive; defaults to <folder>.msb")
   .option(
-    "-o, --out <file>",
-    "explicit output path; defaults to a file next to the source .msbo",
+    "--source-only",
+    "exclude the ledgers and outputs (takes/, shoots/, dailies/, cuts/)",
   )
-  .option("--force")
-  .action(async (file, options) => {
-    const output = options.out ?? defaultExportPath(file);
-    if (existsSync(output) && !options.force)
-      throw new Error(`output exists: ${output}; pass --force to overwrite`);
-    await exportMovie(file, output);
+  .action(async (folder, options) => {
+    const output =
+      options.out ?? `${path.resolve(folder).replace(/[/\\]+$/, "")}.msb`;
+    await packProject(folder, output, { sourceOnly: options.sourceOnly });
     console.log(`Wrote ${output}`);
   });
-
-renderOptions(
-  program
-    .command("make")
-    .description("Render and export in one command")
-    .argument("<file>"),
-  "overwrite an existing MP4",
-).action(async (file, options) => {
-  const configuration = options.config ?? DEFAULT_CONFIGURATION;
-  const defaults = defaultRenderPaths(file, configuration);
-  const movie = (options.out as string | undefined) ?? defaults.movie;
-  const msbo = options.out
-    ? movie.replace(/\.mp4$/i, "") + ".msbo"
-    : defaults.msbo;
-  if (!options.dryRun && existsSync(movie) && !options.force)
-    throw new Error(`output exists: ${movie}; pass --force to overwrite`);
-  const plan = await renderMovie(file, {
-    output: msbo,
-    configuration,
-    dryRun: options.dryRun,
-    maxCost: options.maxCost,
-    workDir: options.workDir,
-    force: options.fresh,
-    concurrency: options.concurrency,
-    keepWorkDir: options.keepWorkDir,
-  });
-  if (!options.dryRun) await exportMovie(msbo, movie);
-  console.log(
-    options.dryRun
-      ? JSON.stringify(
-          {
-            estimatedCost: plan.estimatedCost,
-            providerRequests: 0,
-            movie,
-            msbo,
-          },
-          null,
-          2,
-        )
-      : `Wrote ${movie} and ${msbo}`,
-  );
-});
-
-async function readStoryboardApproval(file: string) {
-  try {
-    const entries = await readArchive(file);
-    const raw = entries.get("msbo.json");
-    if (!raw) return undefined;
-    const output = msboOutputSchema.parse(JSON.parse(raw.toString()));
-    return output.storyboard?.approval;
-  } catch {
-    return undefined;
-  }
-}
-
-async function loadManifestDirectory(directory: string): Promise<void> {
-  const info = await stat(directory);
-  if (!info.isDirectory()) throw new Error("pack input must be a directory");
-  const raw = await readFile(path.join(directory, "msb.json"));
-  const manifest = msbManifestSchema.parse(JSON.parse(raw.toString()));
-  validateManifestSemantics(manifest);
-  for (const asset of referencedAssets(manifest)) {
-    const assetPath = path.join(directory, asset);
-    const assetInfo = await stat(assetPath).catch(() => null);
-    if (!assetInfo?.isFile())
-      throw new Error(`referenced asset is missing or invalid: ${asset}`);
-  }
-}
 
 program.parseAsync().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
