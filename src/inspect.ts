@@ -1,5 +1,6 @@
 import {
   allCues,
+  animaticStanding,
   computeLatest,
   ingestProject,
   listDailies,
@@ -30,7 +31,8 @@ export interface ProjectReport {
     actualCost: number;
   }>;
   takes: { total: number; unreviewed: number };
-  dailies: number;
+  dailies: { sessions: number; observations: number; verdicts: number };
+  animatic: TakeStanding;
   findings: number;
   latest: Awaited<ReturnType<typeof computeLatest>>;
 }
@@ -87,7 +89,22 @@ export async function inspectProject(root: string): Promise<ProjectReport> {
       actualCost: shoot.costs.actual,
     })),
     takes: { total: pool.length, unreviewed: unreviewed.length },
-    dailies: dailies.length,
+    dailies: {
+      sessions: dailies.length,
+      observations: dailies.reduce(
+        (sum, record) => sum + record.dailies.observations.length,
+        0,
+      ),
+      verdicts: dailies.reduce(
+        (sum, record) =>
+          sum +
+          record.dailies.observations.filter(
+            (observation) => observation.verdict !== undefined,
+          ).length,
+        0,
+      ),
+    },
+    animatic: animaticStanding(dailies),
     findings: shoots.reduce(
       (sum, record) => sum + record.shoot.findings.length,
       0,
@@ -109,7 +126,10 @@ export function formatProjectReport(report: ProjectReport): string {
         `  ${shoot.id}  ${shoot.status}  shotlist ${shoot.shotlist}  ${shoot.takes} take(s), ${shoot.reused} reused, ${shoot.findings} finding(s), $${shoot.actualCost.toFixed(2)}`,
     ),
     `Takes: ${report.takes.total} in pool, ${report.takes.unreviewed} unreviewed`,
-    `Dailies sessions: ${report.dailies}`,
+    `Dailies: ${report.dailies.sessions} session(s), ${report.dailies.observations} observation(s), ${report.dailies.verdicts} verdict(s)`,
+    ...(report.animatic !== "unreviewed"
+      ? [`Animatic: ${report.animatic}`]
+      : []),
     `Findings: ${report.findings}`,
   ];
   return lines.join("\n");

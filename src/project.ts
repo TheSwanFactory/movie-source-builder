@@ -376,15 +376,35 @@ export async function listDailies(root: string): Promise<DailiesRecord[]> {
 
 export type TakeStanding = "circled" | "rejected" | "unreviewed";
 
-/** A take's current standing is its latest verdict across all dailies. */
+/**
+ * A take's current standing is its latest verdict across all dailies.
+ * Verdict-less observations never change standing.
+ */
 export function takeStandings(
   dailies: DailiesRecord[],
 ): Map<string, "circled" | "rejected"> {
   const standings = new Map<string, "circled" | "rejected">();
   for (const record of dailies)
-    for (const verdict of record.dailies.verdicts)
-      standings.set(verdict.take, verdict.verdict);
+    for (const observation of record.dailies.observations) {
+      if (observation.verdict === undefined) continue;
+      if (observation.subject && "take" in observation.subject)
+        standings.set(observation.subject.take, observation.verdict);
+    }
   return standings;
+}
+
+/** The animatic's current standing: its latest verdict across all dailies. */
+export function animaticStanding(dailies: DailiesRecord[]): TakeStanding {
+  let standing: TakeStanding = "unreviewed";
+  for (const record of dailies)
+    for (const observation of record.dailies.observations)
+      if (
+        observation.verdict !== undefined &&
+        observation.subject &&
+        "animatic" in observation.subject
+      )
+        standing = observation.verdict;
+  return standing;
 }
 
 export function parseTakeId(takeId: string): { shot: string; number: number } {

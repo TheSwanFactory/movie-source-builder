@@ -9,7 +9,7 @@ Unjudged; diagnosis recorded for the Author's dailies pass.
   frame and the final frames show an empty console. The collapse belongs to
   shot-003 (screenplay cue at 18.7s); this shot's continuity requires
   "hands still fully inside the socks" throughout its [10, 16] span.
-- Ironically this empty last frame scored the chain's *highest* drift
+- Ironically this empty last frame scored the chain's _highest_ drift
   similarity (0.259) against shot-003's collapse board — more evidence that
   SSIM cannot distinguish "evolved as intended" from "evolved wrongly"
   (see docs/CONTRIBUTING.md, shot chaining known limitation).

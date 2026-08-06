@@ -6,7 +6,12 @@ import { execa } from "execa";
 import { readArchive } from "../src/archive.js";
 import { createAnimatic } from "../src/animatic.js";
 import { createCut } from "../src/cut.js";
-import { appendVerdict, listUnreviewed } from "../src/dailies.js";
+import {
+  appendObservation,
+  appendVerdict,
+  listObservations,
+  listUnreviewed,
+} from "../src/dailies.js";
 import { collectGarbage } from "../src/gc.js";
 import { aggregateFindings, shotHistory } from "../src/inspect.js";
 import { packProject } from "../src/pack.js";
@@ -147,6 +152,86 @@ describe("dailies, cut, gc, and latest", () => {
     ]);
     expect(history[1]!.media).toBeUndefined();
     expect(aggregateFindings(await listShoots(root))).toEqual([]);
+  }, 120_000);
+
+  it("records verdict-less observations with attachments, never touching standing", async () => {
+    const root = await makeProject();
+    await runShoot(root, { configuration: MOCK_CONFIGURATION });
+    await createCut(root); // cuts/0001-mock.mp4
+
+    // A session-scoped note needs no subject.
+    const session = await appendObservation(root, {
+      text: "watched cut 0001-mock with the author",
+      by: "author",
+    });
+    expect(session.file).toBe("dailies/0001.json");
+
+    // A cut note carries a span and a screenshot into dailies/<session>/.
+    const screenshot = path.join(root, "..", "insane-ending.png");
+    await writeFile(screenshot, "not really a png");
+    const observed = await appendObservation(root, {
+      cut: "0001-mock",
+      span: [2, 4],
+      text: "final scene insane: puppets vanish",
+      attach: [screenshot],
+      by: "author",
+    });
+    expect(observed.file).toBe("dailies/0002.json");
+    expect(observed.attachments).toEqual(["dailies/0002/insane-ending.png"]);
+    expect(
+      await readFile(path.join(root, "dailies/0002/insane-ending.png"), "utf8"),
+    ).toBe("not really a png");
+
+    // Observations never change standing: every take is still unreviewed,
+    // and the session asset directory never confuses the ledger reader.
+    expect(await listUnreviewed(root)).toHaveLength(2);
+    expect(await listDailies(root)).toHaveLength(2);
+
+    // Verdicts still demand legal subjects and existing artifacts.
+    await expect(
+      appendObservation(root, { verdict: "circled" }),
+    ).rejects.toThrow("a verdict needs a take or animatic subject");
+    await expect(
+      appendObservation(root, { cut: "0001-mock", verdict: "rejected" }),
+    ).rejects.toThrow("verdicts apply to takes and the animatic");
+    await expect(
+      appendObservation(root, { cut: "nope", text: "x" }),
+    ).rejects.toThrow("no such cut");
+    await expect(
+      appendObservation(root, { animatic: true, verdict: "circled" }),
+    ).rejects.toThrow("no animatic to review");
+    await expect(
+      appendObservation(root, {
+        take: "shot-001.t01",
+        cut: "0001-mock",
+        text: "x",
+      }),
+    ).rejects.toThrow("at most one subject");
+    await expect(
+      appendObservation(root, { take: "shot-001.t01" }),
+    ).rejects.toThrow("must carry a verdict, text, notes, or attachments");
+
+    // The documented-but-previously-impossible animatic verdict now lands.
+    await createAnimatic(root);
+    const animatic = await appendObservation(root, {
+      animatic: true,
+      verdict: "circled",
+      by: "author",
+    });
+    expect(animatic.dailies.observations[0]).toMatchObject({
+      subject: { animatic: true },
+      verdict: "circled",
+    });
+
+    // A fresh instance reconstructs the whole review state from the folder.
+    const observations = await listObservations(root);
+    expect(observations).toHaveLength(3);
+    expect(observations[1]).toMatchObject({
+      session: "0002",
+      by: "author",
+      subject: { cut: "0001-mock", span: [2, 4] },
+      attachments: ["dailies/0002/insane-ending.png"],
+    });
   }, 120_000);
 });
 

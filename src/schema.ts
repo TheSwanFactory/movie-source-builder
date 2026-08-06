@@ -369,6 +369,66 @@ export type Shoot = z.infer<typeof shootSchema>;
 
 // --- dailies/NNNN.json: the append-only review ledger ------------------------
 
+const observationSpan = z
+  .tuple([z.number().nonnegative(), z.number().nonnegative()])
+  .describe("Seconds on the screenplay timeline: [start, end].")
+  .refine(([start, end]) => start < end, {
+    message: "span end must follow its start",
+  });
+
+export const observationSubjectSchema = z.union([
+  z.strictObject({ take: takeId }),
+  z.strictObject({ cut: id, span: observationSpan.optional() }),
+  z.strictObject({
+    animatic: z.literal(true),
+    span: observationSpan.optional(),
+  }),
+]);
+
+export type ObservationSubject = z.infer<typeof observationSubjectSchema>;
+
+/**
+ * One entry in a review session: something a reviewer saw, optionally
+ * carrying a verdict. Subject omitted means the observation is about the
+ * session itself. Only take and animatic subjects may carry verdicts —
+ * standing is computed from take verdicts alone.
+ */
+export const observationSchema = z
+  .object({
+    subject: observationSubjectSchema.optional(),
+    verdict: z.enum(["circled", "rejected"]).optional(),
+    text: z.string().min(1).optional(),
+    notes: relativePath.optional(),
+    attachments: z
+      .array(relativePath)
+      .min(1)
+      .describe("Evidence copied verbatim into dailies/<session>/.")
+      .optional(),
+  })
+  .superRefine((observation, context) => {
+    if (
+      observation.verdict === undefined &&
+      observation.text === undefined &&
+      observation.notes === undefined &&
+      observation.attachments === undefined
+    )
+      context.addIssue({
+        code: "custom",
+        message:
+          "an observation must carry a verdict, text, notes, or attachments",
+      });
+    if (
+      observation.verdict !== undefined &&
+      (observation.subject === undefined || "cut" in observation.subject)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "a verdict needs a take or animatic subject",
+      });
+  });
+
+export type Observation = z.infer<typeof observationSchema>;
+
 export const dailiesSchema = z.object({
   formatVersion: formatVersion2,
   dailies: z.object({
@@ -376,15 +436,7 @@ export const dailiesSchema = z.object({
     at: z.string().datetime(),
     by: z.string().min(1),
   }),
-  verdicts: z
-    .array(
-      z.object({
-        take: takeId,
-        verdict: z.enum(["circled", "rejected"]),
-        notes: relativePath.optional(),
-      }),
-    )
-    .min(1),
+  observations: z.array(observationSchema).min(1),
 });
 
 export type Dailies = z.infer<typeof dailiesSchema>;

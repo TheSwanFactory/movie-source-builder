@@ -11,7 +11,7 @@ Unjudged; diagnosis recorded for the Author's dailies pass.
   - Off-model socks: the collapsed socks gain gray heels and orange
     athletic-stripe toes not present in any model sheet.
   - A live puppeteer hand and forearm drift through the upper-left of the
-    early frames *after* the withdrawal — the shot's whole premise is that
+    early frames _after_ the withdrawal — the shot's whole premise is that
     the hands are gone.
 - Chained from shot-002.t02's defective empty-console last frame, so the
   socks were re-invented by the model rather than carried over — the same

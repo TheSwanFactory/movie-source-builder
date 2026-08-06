@@ -16,22 +16,74 @@
       },
       "required": ["id", "at", "by"]
     },
-    "verdicts": {
+    "observations": {
       "minItems": 1,
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
-          "take": {
-            "type": "string",
-            "pattern": "^([a-z0-9][a-z0-9._-]*)\\.t(\\d{2,})$"
+          "subject": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "take": {
+                    "type": "string",
+                    "pattern": "^([a-z0-9][a-z0-9._-]*)\\.t(\\d{2,})$"
+                  }
+                },
+                "required": ["take"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "cut": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  },
+                  "span": {
+                    "type": "array",
+                    "prefixItems": [
+                      { "type": "number", "minimum": 0 },
+                      { "type": "number", "minimum": 0 }
+                    ],
+                    "description": "Seconds on the screenplay timeline: [start, end]."
+                  }
+                },
+                "required": ["cut"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "animatic": { "type": "boolean", "const": true },
+                  "span": {
+                    "type": "array",
+                    "prefixItems": [
+                      { "type": "number", "minimum": 0 },
+                      { "type": "number", "minimum": 0 }
+                    ],
+                    "description": "Seconds on the screenplay timeline: [start, end]."
+                  }
+                },
+                "required": ["animatic"],
+                "additionalProperties": false
+              }
+            ]
           },
           "verdict": { "type": "string", "enum": ["circled", "rejected"] },
-          "notes": { "type": "string", "minLength": 1 }
-        },
-        "required": ["take", "verdict"]
+          "text": { "type": "string", "minLength": 1 },
+          "notes": { "type": "string", "minLength": 1 },
+          "attachments": {
+            "minItems": 1,
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Evidence copied verbatim into dailies/<session>/."
+          }
+        }
       }
     }
   },
-  "required": ["formatVersion", "dailies", "verdicts"]
+  "required": ["formatVersion", "dailies", "observations"]
 }
