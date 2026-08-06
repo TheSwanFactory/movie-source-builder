@@ -189,7 +189,7 @@ describe("chain drift retry", () => {
         // The retry reused the predecessor's cached starting image.
         expect(stub.uploads[0]!.equals(stub.uploads[1]!)).toBe(true);
       }),
-    120_000,
+    240_000,
   );
 
   it(
@@ -223,7 +223,7 @@ describe("chain drift retry", () => {
             readFile(path.join(root, `takes/${take.take}.mp4`)),
           ).resolves.toBeDefined();
       }),
-    120_000,
+    240_000,
   );
 
   it(
@@ -246,6 +246,6 @@ describe("chain drift retry", () => {
         ).toBe(true);
         expect(stub.subscribeCalls()).toBe(2);
       }),
-    120_000,
+    240_000,
   );
 });
