@@ -1,6 +1,6 @@
 {
   "name": "movie-source-builder",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Build, shoot, review, and cut portable AI movie project folders",
   "type": "module",
   "bin": {

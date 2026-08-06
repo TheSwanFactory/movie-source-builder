@@ -16,6 +16,13 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Observed runs are 18-45s. Deliberately looser than CI's 5min: this job
+    # runs npm ci uncached, plus npm view and npm publish against the
+    # registry, so a slow registry must not trip the cap mid-publish. The
+    # point is bounding a hang -- the npm-publish concurrency group does not
+    # cancel in progress, so a stuck run would block every later release for
+    # the 360min default.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
 

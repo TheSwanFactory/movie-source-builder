@@ -174,21 +174,79 @@ describe("v2 project schemas", () => {
     const dailies = dailiesSchema.parse({
       formatVersion: "2.0.0",
       dailies: { id: "0001", at: "2026-08-05T04:20:00.000Z", by: "author" },
-      verdicts: [
+      observations: [
         {
-          take: "shot-001.t01",
+          subject: { take: "shot-001.t01" },
           verdict: "rejected",
           notes: "takes/shot-001.t01.notes.md",
         },
-        { take: "shot-001.t02", verdict: "circled" },
+        { subject: { take: "shot-001.t02" }, verdict: "circled" },
       ],
     });
-    expect(dailies.verdicts).toHaveLength(2);
+    expect(dailies.observations).toHaveLength(2);
     expect(() =>
       dailiesSchema.parse({
         formatVersion: "2.0.0",
         dailies: { id: "0001", at: "2026-08-05T04:20:00.000Z", by: "author" },
-        verdicts: [{ take: "not-a-take", verdict: "circled" }],
+        observations: [{ subject: { take: "not-a-take" }, verdict: "circled" }],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts verdict-less observations on cuts, the animatic, and the session", () => {
+    const dailies = dailiesSchema.parse({
+      formatVersion: "2.0.0",
+      dailies: { id: "0002", at: "2026-08-06T15:00:00.000Z", by: "author" },
+      observations: [
+        {
+          subject: { cut: "0002-default", span: [22, 32] },
+          text: "Final scene insane: puppets vanish, a human delivers replacements.",
+          attachments: ["dailies/0002/insane-ending.png"],
+        },
+        { subject: { animatic: true }, verdict: "circled" },
+        { text: "watched cut 0002 with the author" },
+      ],
+    });
+    expect(dailies.observations).toHaveLength(3);
+  });
+
+  it("rejects contentless observations, subjectless verdicts, and cut verdicts", () => {
+    const session = {
+      formatVersion: "2.0.0",
+      dailies: { id: "0003", at: "2026-08-06T15:00:00.000Z", by: "author" },
+    };
+    // No verdict, text, notes, or attachments: nothing was observed.
+    expect(() =>
+      dailiesSchema.parse({
+        ...session,
+        observations: [{ subject: { take: "shot-001.t01" } }],
+      }),
+    ).toThrow();
+    expect(() =>
+      dailiesSchema.parse({
+        ...session,
+        observations: [{ verdict: "circled" }],
+      }),
+    ).toThrow();
+    expect(() =>
+      dailiesSchema.parse({
+        ...session,
+        observations: [{ subject: { cut: "0002" }, verdict: "rejected" }],
+      }),
+    ).toThrow();
+    // Backwards span and mixed subjects are malformed.
+    expect(() =>
+      dailiesSchema.parse({
+        ...session,
+        observations: [{ subject: { cut: "0002", span: [32, 22] }, text: "x" }],
+      }),
+    ).toThrow();
+    expect(() =>
+      dailiesSchema.parse({
+        ...session,
+        observations: [
+          { subject: { take: "shot-001.t01", cut: "0002" }, text: "x" },
+        ],
       }),
     ).toThrow();
   });

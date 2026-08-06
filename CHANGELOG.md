@@ -2,6 +2,48 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.8.0] - 2026-08-06
+
+Observations are first-class in the dailies ledger
+([#17](https://github.com/TheSwanFactory/movie-source-builder/issues/17)):
+review sessions record what was seen, not only what was decided. Also
+carries the first full v2 production loop and the shoot fixes it forced.
+
+### Changed
+
+- **Dailies entries are observations with an optional verdict.** The
+  `verdicts` array becomes `observations`; each entry has an optional
+  `subject` — a take, a cut (optionally with a `span` in screenplay-timeline
+  seconds), the animatic, or, when omitted, the session itself — plus
+  optional `verdict`, inline `text`, a `notes` document, and `attachments`.
+  Verdicts remain legal on take and animatic subjects only, and a take's
+  standing is still the latest verdict — verdict-less observations never
+  change standing. No back-compat with the `verdicts` shape (pre-1.0).
+- `msb dailies` lists past observations alongside unreviewed takes; its
+  `--json` output is now `{ unreviewed, observations }`. `msb inspect`
+  reports observation/verdict counts and the animatic's standing.
+
+### Added
+
+- **`msb note`** appends a verdict-less observation:
+  `msb note <folder> [--take <id> | --cut <id> [--span a-b] | --animatic]
+[--text "…"] [--notes <file>] [--attach <file>...] [--by <name>]`.
+- **Attachments**: `--attach` (on `note` and `circle`) copies screenshots
+  and other review evidence verbatim into the session's asset directory,
+  `dailies/<ordinal>/`, and records the references in the entry — review
+  evidence lives in the folder instead of dying with a chat transcript.
+- **`msb circle --animatic`** records the previously documented-but-
+  impossible animatic verdict; `circle` also accepts `--text`. Library:
+  `appendObservation`, `listObservations`, `animaticStanding` exported;
+  `appendVerdict` is now sugar over `appendObservation`.
+- **`msb shoot --chain-threshold <number>`** overrides the fixed 0.6 chain
+  drift SSIM gate, recorded in the shoot's warnings — projects whose
+  consecutive authored boards change camera angle score 0.24–0.33 board to
+  board, making the default unreachable by construction.
+- **`examples/skit-poc`**: the first full v2 production loop — shoots
+  0001–0002, take diagnoses in `takes/*.notes.md`, a dailies session, and a
+  cut — the session whose review-ledger gaps motivated #17.
+
 ## [0.7.0] - 2026-08-05
 
 MSB format v2: the project folder ([#13](https://github.com/TheSwanFactory/movie-source-builder/issues/13)).
