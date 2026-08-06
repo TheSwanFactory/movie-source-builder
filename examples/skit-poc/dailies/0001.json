@@ -1,0 +1,14 @@
+{
+  "formatVersion": "2.0.0",
+  "dailies": {
+    "id": "0001",
+    "at": "2026-08-06T14:24:50.100Z",
+    "by": "claude"
+  },
+  "verdicts": [
+    {
+      "take": "shot-001.t03",
+      "verdict": "circled"
+    }
+  ]
+}
