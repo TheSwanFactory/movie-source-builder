@@ -1,23 +1,17 @@
 {
-  "formatVersion": "1.1.0",
+  "formatVersion": "2.0.0",
   "project": {
     "id": "renderer-smoke-test-reference",
     "title": "Renderer Reference Smoke Test",
     "description": "A single eight-second reference-to-video shot for testing reference-to-video MSBC engine configurations"
   },
-  "characters": [],
-  "locations": [],
-  "props": [],
-  "shots": [
+  "cast": [
     {
-      "id": "smoke-shot-001",
-      "duration": 8,
-      "characters": [],
-      "dialogue": [],
-      "action": "The geometric shapes drift slowly across the frame with gentle parallax.",
-      "camera": "Static wide shot.",
-      "references": { "identity": ["identity-1.png"] },
-      "continuity": []
+      "id": "drifting-shapes",
+      "kind": "prop",
+      "name": "Drifting Shapes",
+      "description": "Flat geometric shapes in muted colors on a dark backdrop, used as the identity reference",
+      "modelSheet": "references/identity-1.png"
     }
   ]
 }

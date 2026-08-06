@@ -1,0 +1,23 @@
+{
+  "formatVersion": "2.0.0",
+  "screenplay": {
+    "title": "Renderer Smoke Test",
+    "duration": 6,
+    "draft": "drafts/smoke-test.md",
+    "draftHash": "a258326fa4ed402664a75ddb4eb4805f818346840f6e8d1bf093f7676d184cd1"
+  },
+  "scenes": [
+    {
+      "id": "scene-001",
+      "slug": "drifting-shapes",
+      "cues": [
+        {
+          "id": "c001",
+          "at": 0,
+          "kind": "action",
+          "text": "The geometric shapes drift slowly across the frame with gentle parallax."
+        }
+      ]
+    }
+  ]
+}

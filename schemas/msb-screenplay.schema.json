@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "formatVersion": { "type": "string", "pattern": "^2\\.\\d+\\.\\d+$" },
+    "screenplay": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "draft": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The verbatim draft under drafts/ this canonical screenplay renders."
+        },
+        "draftHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "required": ["title", "duration", "draft", "draftHash"],
+      "additionalProperties": false
+    },
+    "scenes": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+          "slug": { "type": "string", "minLength": 1 },
+          "cues": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+                "kind": {
+                  "type": "string",
+                  "enum": ["action", "dialogue", "narration"]
+                },
+                "at": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Point cues (action beats) mark one moment on the timeline."
+                },
+                "span": {
+                  "type": "array",
+                  "prefixItems": [
+                    { "type": "number", "minimum": 0 },
+                    { "type": "number", "minimum": 0 }
+                  ],
+                  "description": "Span cues (dialogue/narration) occupy [start, end)."
+                },
+                "character": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                },
+                "delivery": { "type": "string" },
+                "text": { "type": "string", "minLength": 1 }
+              },
+              "required": ["id", "kind", "text"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["id", "slug", "cues"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["formatVersion", "screenplay", "scenes"],
+  "additionalProperties": false
+}

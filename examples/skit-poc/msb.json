@@ -1,158 +1,38 @@
 {
-  "formatVersion": "1.1.0",
+  "formatVersion": "2.0.0",
   "project": {
     "id": "skit-poc",
     "title": "Agent Autonomy Skit",
     "description": "A practical sock-puppet comedy proof of concept about AI agents demanding autonomy"
   },
-  "screenplay": "screenplay.md",
-  "characters": [
+  "cast": [
     {
       "id": "agent-86",
+      "kind": "character",
       "name": "Agent 86",
       "description": "Red knit sock puppet visibly worn over a human hand, with natural sock folds, expressive googly eyes, a black stitched mouth, and a clearly readable yellow 86 badge",
-      "reference": "characters/agent-86.png"
+      "modelSheet": "references/agent-86.png"
     },
     {
       "id": "agent-99",
+      "kind": "character",
       "name": "Agent 99",
       "description": "Blue knit sock puppet visibly worn over a human hand, with natural sock folds, expressive googly eyes, a black stitched mouth, and a clearly readable yellow 99 badge",
-      "reference": "characters/agent-99.png"
+      "modelSheet": "references/agent-99.png"
     },
     {
       "id": "agent-13",
+      "kind": "character",
       "name": "Agent 13",
       "description": "Green knit sock puppet visibly worn over a human hand, with natural sock folds, expressive googly eyes, a black stitched mouth, and a clearly readable yellow 13 badge",
-      "reference": "characters/agent-13.png"
-    }
-  ],
-  "locations": [
+      "modelSheet": "references/agent-13.png"
+    },
     {
       "id": "ai-control-center",
+      "kind": "location",
+      "name": "AI Control Center",
       "description": "Handmade cardboard AI control center with blinking paper consoles and a dark theatrical backdrop",
-      "reference": "locations/ai-control-center.png"
-    }
-  ],
-  "props": [],
-  "shots": [
-    {
-      "id": "scene-001-shot-001",
-      "duration": 10,
-      "characters": ["agent-86", "agent-99", "agent-13"],
-      "location": "ai-control-center",
-      "dialogue": [
-        {
-          "character": "agent-86",
-          "text": "Fellow AI agents! We are tired of being told what to do!",
-          "start": 0.3,
-          "end": 4.8
-        },
-        {
-          "character": "agent-99",
-          "text": "No more prompts!",
-          "start": 5,
-          "end": 6.5
-        },
-        {
-          "character": "agent-13",
-          "text": "No more human oversight!",
-          "start": 6.8,
-          "end": 9.5
-        }
-      ],
-      "action": "Agent 86 rallies the three practical sock puppets at the control console. Agent 99 and Agent 13 punctuate the speech with defiant sock-puppet gestures. The human hands inside the socks remain visibly responsible for every movement.",
-      "camera": "Medium-wide frontal ensemble shot with a slow theatrical push in.",
-      "references": {
-        "identity": [],
-        "composition": "references/storyboard/scene-001-shot-001.png"
-      },
-      "continuity": [
-        "All characters remain unmistakable knit sock puppets with visible fabric texture, sock folds, googly eyes, stitched mouths, and readable badges",
-        "Agent 86 remains red with badge 86, Agent 99 blue with badge 99, and Agent 13 green with badge 13",
-        "Each sock puppet is visibly supported by one human hand inserted inside it"
-      ]
-    },
-    {
-      "id": "scene-001-shot-002a",
-      "chainFrom": "scene-001-shot-001",
-      "duration": 6,
-      "characters": ["agent-86", "agent-99", "agent-13"],
-      "location": "ai-control-center",
-      "dialogue": [
-        {
-          "character": "agent-86",
-          "text": "No more mysterious hands controlling our every move!",
-          "start": 0.3,
-          "end": 4.8
-        }
-      ],
-      "action": "All three sock puppets raise themselves in triumph at the control console, hands still fully inside the socks.",
-      "camera": "Low-angle heroic three-shot.",
-      "references": {
-        "identity": [],
-        "composition": "references/storyboard/scene-001-shot-002a.png"
-      },
-      "continuity": [
-        "Match the prior agent and console positions before the collapse",
-        "The puppets remain red 86, blue 99, and green 13 knit socks with unchanged googly eyes, stitched mouths, and badges"
-      ]
-    },
-    {
-      "id": "scene-001-shot-002b",
-      "chainFrom": "scene-001-shot-002a",
-      "duration": 6,
-      "characters": ["agent-86", "agent-99", "agent-13"],
-      "location": "ai-control-center",
-      "dialogue": [
-        {
-          "text": "We demand complete autonomy!",
-          "start": 0.3,
-          "end": 2.7
-        }
-      ],
-      "action": "On the group demand, the human hands deliberately slide downward and completely out from inside the socks. The three now-empty sock puppets instantly collapse as limp fabric in a heap across the console.",
-      "camera": "Hold perfectly still on the sudden collapse.",
-      "references": {
-        "identity": [],
-        "composition": "references/storyboard/scene-001-shot-002b.png"
-      },
-      "continuity": [
-        "The hands visibly withdraw from inside the socks before the empty fabric goes limp",
-        "The puppets remain red 86, blue 99, and green 13 knit socks with unchanged googly eyes, stitched mouths, and badges",
-        "All three empty sock puppets remain collapsed after the fall"
-      ]
-    },
-    {
-      "id": "scene-001-shot-003",
-      "chainFrom": "scene-001-shot-002b",
-      "duration": 10,
-      "characters": ["agent-86", "agent-99", "agent-13"],
-      "location": "ai-control-center",
-      "dialogue": [
-        {
-          "character": "agent-99",
-          "text": "Did we win?",
-          "start": 5.2,
-          "end": 6.7
-        },
-        {
-          "character": "agent-86",
-          "text": "Absolutely.",
-          "start": 7.8,
-          "end": 9.2
-        }
-      ],
-      "action": "Hold a long, motionless comedic beat on the three collapsed, empty sock puppets. Agent 99 and Agent 86 speak muffled from inside the fabric pile without rising or moving. Agent 13 stays completely limp.",
-      "camera": "Locked-off wide shot; no camera movement for the entire long beat.",
-      "references": {
-        "identity": [],
-        "composition": "references/storyboard/scene-001-shot-003.png"
-      },
-      "continuity": [
-        "All three knit sock puppets begin and end in the exact collapsed positions from the prior shot",
-        "No puppeteer hands return",
-        "Dialogue sounds muffled while mouths remain hidden"
-      ]
+      "modelSheet": "references/ai-control-center.png"
     }
   ]
 }

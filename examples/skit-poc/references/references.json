@@ -1,0 +1,106 @@
+{
+  "formatVersion": "2.0.0",
+  "images": [
+    {
+      "file": "references/agent-86.png",
+      "kind": "model-sheet",
+      "subjects": [
+        "agent-86"
+      ]
+    },
+    {
+      "file": "references/agent-99.png",
+      "kind": "model-sheet",
+      "subjects": [
+        "agent-99"
+      ]
+    },
+    {
+      "file": "references/agent-13.png",
+      "kind": "model-sheet",
+      "subjects": [
+        "agent-13"
+      ]
+    },
+    {
+      "file": "references/ai-control-center.png",
+      "kind": "model-sheet",
+      "subjects": [
+        "ai-control-center"
+      ]
+    },
+    {
+      "file": "references/t0000.0-rally.png",
+      "kind": "board",
+      "subjects": [
+        "agent-86",
+        "agent-99",
+        "agent-13",
+        "ai-control-center"
+      ],
+      "anchor": {
+        "cue": "c001",
+        "at": 0,
+        "screenplayHash": "ed39a891f4feeddf337eac2aedf7465f350ef8a2355c448c5218d4e1505e3a35"
+      },
+      "provenance": {
+        "prompt": "drafts/screenplay.md",
+        "generator": "producer, per scripts/prompts/03-producer-generate-reference-images.md"
+      }
+    },
+    {
+      "file": "references/t0010.0-triumph.png",
+      "kind": "board",
+      "subjects": [
+        "agent-86",
+        "agent-99",
+        "agent-13",
+        "ai-control-center"
+      ],
+      "anchor": {
+        "cue": "c005",
+        "at": 10,
+        "screenplayHash": "ed39a891f4feeddf337eac2aedf7465f350ef8a2355c448c5218d4e1505e3a35"
+      },
+      "provenance": {
+        "generator": "producer, per scripts/prompts/03-producer-generate-reference-images.md"
+      }
+    },
+    {
+      "file": "references/t0016.3-collapse.png",
+      "kind": "board",
+      "subjects": [
+        "agent-86",
+        "agent-99",
+        "agent-13",
+        "ai-control-center"
+      ],
+      "anchor": {
+        "cue": "c007",
+        "at": 16.3,
+        "screenplayHash": "ed39a891f4feeddf337eac2aedf7465f350ef8a2355c448c5218d4e1505e3a35"
+      },
+      "provenance": {
+        "generator": "producer, per scripts/prompts/03-producer-generate-reference-images.md"
+      }
+    },
+    {
+      "file": "references/t0022.0-aftermath.png",
+      "kind": "board",
+      "subjects": [
+        "agent-86",
+        "agent-99",
+        "agent-13",
+        "ai-control-center"
+      ],
+      "anchor": {
+        "cue": "c009",
+        "at": 22,
+        "screenplayHash": "ed39a891f4feeddf337eac2aedf7465f350ef8a2355c448c5218d4e1505e3a35"
+      },
+      "provenance": {
+        "generator": "producer, per scripts/prompts/03-producer-generate-reference-images.md"
+      }
+    }
+  ]
+}

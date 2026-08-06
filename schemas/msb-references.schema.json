@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "formatVersion": { "type": "string", "pattern": "^2\\.\\d+\\.\\d+$" },
+    "images": {
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Project-root-relative path under references/."
+          },
+          "kind": { "type": "string", "enum": ["model-sheet", "board"] },
+          "subjects": {
+            "default": [],
+            "type": "array",
+            "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" }
+          },
+          "anchor": {
+            "type": "object",
+            "properties": {
+              "cue": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+              "at": { "type": "number", "minimum": 0 },
+              "screenplayHash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": ["cue", "at", "screenplayHash"],
+            "additionalProperties": false,
+            "description": "Boards anchor to a cue; the time and screenplay hash are captured at anchoring time (provenance, not a resolution mechanism)."
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "prompt": { "type": "string", "minLength": 1 },
+              "promptHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "generator": { "type": "string" },
+              "note": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": ["file", "kind", "subjects"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["formatVersion", "images"],
+  "additionalProperties": false
+}

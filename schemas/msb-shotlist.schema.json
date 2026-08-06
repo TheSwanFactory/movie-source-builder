@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "formatVersion": { "type": "string", "pattern": "^2\\.\\d+\\.\\d+$" },
+    "shotlist": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^\\d{3}$" },
+        "supersedes": { "type": "string", "pattern": "^\\d{3}$" },
+        "screenplayHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+        },
+        "note": { "type": "string" }
+      },
+      "required": ["id", "screenplayHash", "createdAt"],
+      "additionalProperties": false
+    },
+    "scenes": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+          "shots": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+                "span": {
+                  "type": "array",
+                  "prefixItems": [
+                    { "type": "number", "minimum": 0 },
+                    { "type": "number", "minimum": 0 }
+                  ],
+                  "description": "[start, end) on the screenplay timeline, in seconds."
+                },
+                "characters": {
+                  "default": [],
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  }
+                },
+                "location": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                },
+                "action": { "type": "string", "minLength": 1 },
+                "camera": { "type": "string", "minLength": 1 },
+                "references": {
+                  "default": { "identity": [] },
+                  "type": "object",
+                  "properties": {
+                    "identity": {
+                      "default": [],
+                      "type": "array",
+                      "items": { "type": "string", "minLength": 1 },
+                      "description": "Explicit raster identity references for reference-to-video renderers. Not automatically populated from characters — a path must be listed here to be uploaded."
+                    },
+                    "composition": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Explicit starting-frame / opening-composition raster for single-image renderers."
+                    },
+                    "endFrame": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Explicit ending-frame raster for renderers that support first/last-frame generation."
+                    }
+                  },
+                  "required": ["identity"],
+                  "additionalProperties": false
+                },
+                "continuity": {
+                  "default": [],
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Text prompt guidance only; this does not lock identity or pass frames between independently generated shots."
+                },
+                "prompts": {
+                  "default": { "default": null },
+                  "type": "object",
+                  "propertyNames": { "type": "string", "minLength": 1 },
+                  "additionalProperties": {
+                    "anyOf": [
+                      { "type": "string", "minLength": 1 },
+                      { "type": "null" }
+                    ]
+                  },
+                  "description": "Per-engine prompt overrides keyed by engine config name (e.g. \"fal-ltx-2.3-fast\") or provider/model; the \"default\" key of null means derive the prompt from action/camera/continuity. Dialogue is always appended from the screenplay cues in the shot span."
+                },
+                "chainFrom": {
+                  "anyOf": [
+                    { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+                    { "type": "null" }
+                  ],
+                  "description": "Id of an earlier shot to chain from. The shot must still author its own references.composition; at shoot time the predecessor's last rendered frame is compared against it, and a drift miss re-renders the predecessor as additional numbered takes (CHAIN_DRIFT_MAX_ATTEMPTS in src/chain.ts) before failing."
+                }
+              },
+              "required": [
+                "id",
+                "span",
+                "characters",
+                "action",
+                "camera",
+                "references",
+                "continuity",
+                "prompts"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["id", "shots"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["formatVersion", "shotlist", "scenes"],
+  "additionalProperties": false
+}

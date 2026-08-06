@@ -1,0 +1,12 @@
+{
+  "formatVersion": "2.0.0",
+  "images": [
+    {
+      "file": "references/identity-1.png",
+      "kind": "model-sheet",
+      "subjects": [
+        "drifting-shapes"
+      ]
+    }
+  ]
+}

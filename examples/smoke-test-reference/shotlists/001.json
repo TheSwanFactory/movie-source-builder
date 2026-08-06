@@ -1,0 +1,31 @@
+{
+  "formatVersion": "2.0.0",
+  "shotlist": {
+    "id": "001",
+    "screenplayHash": "fab505702e0f247ffa1ad8e7eb252b80d2d64b514e765d7965f68b65976f43ab",
+    "createdAt": "2026-08-05T00:00:00.000Z"
+  },
+  "scenes": [
+    {
+      "id": "scene-001",
+      "shots": [
+        {
+          "id": "smoke-shot-001",
+          "span": [
+            0,
+            8
+          ],
+          "characters": [],
+          "action": "The geometric shapes drift slowly across the frame with gentle parallax.",
+          "camera": "Static wide shot.",
+          "references": {
+            "identity": [
+              "references/identity-1.png"
+            ]
+          },
+          "continuity": []
+        }
+      ]
+    }
+  ]
+}
