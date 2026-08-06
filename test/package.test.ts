@@ -13,8 +13,12 @@ describe("published package contents", () => {
     expect(paths).toContain("dist/storyboard.js");
     expect(paths).toContain("dist/storyboard.d.ts");
     expect(paths).toContain("scripts/generate-storyboard-prompts.mjs");
-    expect(paths).toContain("scripts/prompts/storyboard-image.md");
-    expect(paths).toContain("scripts/prompts/storyboard-audio.md");
+    expect(paths).toContain(
+      "scripts/prompts/03-producer-generate-reference-images.md",
+    );
+    expect(paths).toContain(
+      "scripts/prompts/08-producer-generate-timing-audio.md",
+    );
     expect(paths).toContain("schemas/msbo-output.schema.json");
   });
 });

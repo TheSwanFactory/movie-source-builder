@@ -1,4 +1,4 @@
 {
   "version": "1.0.0",
-  "extends": "fal-hailuo-02-standard.msbc"
+  "extends": "fal-ltx-2.3-fast.msbc"
 }

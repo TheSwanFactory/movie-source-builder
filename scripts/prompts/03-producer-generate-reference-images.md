@@ -1,3 +1,8 @@
+---
+step: 3
+role: producer
+---
+
 # Canonical storyboard image prompt v1
 
 Create one readable 16:9 storyboard reference image for the shot described below. This is a planning artifact and source reference, not a finished production frame.

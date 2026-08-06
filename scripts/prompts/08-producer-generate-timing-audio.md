@@ -1,3 +1,8 @@
+---
+step: 8
+role: producer
+---
+
 # Canonical storyboard timing-audio prompt v1
 
 Create temporary timing speech only. It is not a final performance and must never be labeled production audio.

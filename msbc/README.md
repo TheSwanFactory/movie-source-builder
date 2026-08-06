@@ -10,7 +10,7 @@ Reusable Movie Source Builder Configuration (`.msbc`) profiles:
 | [`fal-ltx-2.3-fast.msbc`](fal-ltx-2.3-fast.msbc)                     | [LTX 2.3 Fast](https://fal.ai/models/fal-ai/ltx-2.3/image-to-video/fast/api)                             | `image-to-video`     | `FAL_KEY`   | Supported |
 | [`fal-veo-3.1-fast-reference.msbc`](fal-veo-3.1-fast-reference.msbc) | [Veo 3.1 Fast Reference-to-Video](https://fal.ai/models/fal-ai/veo3.1/fast/reference-to-video/api)       | `reference-to-video` | `FAL_KEY`   | Supported |
 
-[`default.msbc`](default.msbc) inherits the cheapest configured paid engine, currently Hailuo 02 Standard. The CLI uses this packaged configuration when `--config` is omitted.
+[`default.msbc`](default.msbc) inherits the cheapest configured paid engine that supports both audio and shot chaining (`image-to-video` mode), currently LTX 2.3 Fast — Hailuo 02 Standard is cheaper per second but generates no audio at all, so it's available as an explicit opt-in but is no longer the default. The CLI uses this packaged configuration when `--config` is omitted.
 
 Reusable output profiles live under [`formats/`](formats/). Engine configurations inherit a compatible output profile instead of repeating dimensions and frame rate.
 
