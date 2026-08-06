@@ -80,6 +80,14 @@ export interface ShootOptions {
   concurrency?: number;
   /** Ignore reusable takes and render every shot fresh. */
   fresh?: boolean;
+  /**
+   * Override CHAIN_SIMILARITY_THRESHOLD for this shoot's chain drift
+   * checks. SSIM is framing-sensitive: projects whose consecutive boards
+   * change camera angle score far below the default even on authored
+   * ground truth, so the gate must be calibratable per shoot. The override
+   * is recorded in the shoot's warnings.
+   */
+  chainThreshold?: number;
 }
 
 export interface ShootResult {
@@ -355,12 +363,21 @@ export async function runShoot(
 
   const anyChained = plan.units.some((unit) => unit.chainFrom !== undefined);
   const concurrency = anyChained ? 1 : Math.max(1, options.concurrency ?? 1);
+  const chainThreshold = options.chainThreshold ?? CHAIN_SIMILARITY_THRESHOLD;
+  if (!(chainThreshold > 0 && chainThreshold <= 1))
+    throw new Error(
+      `--chain-threshold must be in (0, 1]: ${String(options.chainThreshold)}`,
+    );
   const warnings =
     anyChained && (options.concurrency ?? 1) > 1
       ? [
           "concurrency clamped to 1: chained shots (chainFrom) require strictly sequential rendering",
         ]
       : [];
+  if (anyChained && options.chainThreshold !== undefined)
+    warnings.push(
+      `chain drift threshold overridden to ${chainThreshold} (default ${CHAIN_SIMILARITY_THRESHOLD})`,
+    );
 
   const shoots = await listShoots(root);
   const numberSeed = await takeNumberSeed(root, shoots);
@@ -509,11 +526,11 @@ export async function runShoot(
         ffmpeg,
       );
       scores.push(score);
-      if (score >= CHAIN_SIMILARITY_THRESHOLD)
+      if (score >= chainThreshold)
         return { composition: await readFile(lastFrame), chainScore: score };
       if (attempt === CHAIN_DRIFT_MAX_ATTEMPTS)
         throw new Error(
-          `shot ${unit.shot.id} failed its chain drift check against predecessor ${unit.chainFrom} after ${CHAIN_DRIFT_MAX_ATTEMPTS} predecessor render attempt(s) (similarities: ${scores.map((s) => s.toFixed(3)).join(", ")}), all below threshold ${CHAIN_SIMILARITY_THRESHOLD}`,
+          `shot ${unit.shot.id} failed its chain drift check against predecessor ${unit.chainFrom} after ${CHAIN_DRIFT_MAX_ATTEMPTS} predecessor render attempt(s) (similarities: ${scores.map((s) => s.toFixed(3)).join(", ")}), all below threshold ${chainThreshold}`,
         );
       const startingImage = predecessorState.startingImage;
       if (startingImage === undefined)
@@ -526,7 +543,7 @@ export async function runShoot(
         allocateTake(unit.chainFrom!),
       );
       retryTake.warnings.push(
-        `chain retry (attempt ${attempt + 1}/${CHAIN_DRIFT_MAX_ATTEMPTS}): downstream drift check for successor ${unit.shot.id} scored ${score.toFixed(3)} (below ${CHAIN_SIMILARITY_THRESHOLD})`,
+        `chain retry (attempt ${attempt + 1}/${CHAIN_DRIFT_MAX_ATTEMPTS}): downstream drift check for successor ${unit.shot.id} scored ${score.toFixed(3)} (below ${chainThreshold})`,
       );
       takeEntries.push(retryTake);
       predecessorState.media = resolveInside(root, retryTake.media!);

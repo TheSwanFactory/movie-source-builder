@@ -109,6 +109,11 @@ program
   .option("--max-cost <usd>", "maximum new generation cost", number)
   .option("--concurrency <number>", "parallel requests", number, 2)
   .option("--fresh", "ignore reusable takes and render every shot")
+  .option(
+    "--chain-threshold <number>",
+    "override the chain drift SSIM threshold for this shoot (default 0.6); recorded in the shoot's warnings",
+    number,
+  )
   .action(async (folder, options) => {
     const result = await runShoot(folder, {
       configuration: options.config ?? DEFAULT_CONFIGURATION,
@@ -116,6 +121,7 @@ program
       maxCost: options.maxCost,
       concurrency: options.concurrency,
       fresh: options.fresh,
+      chainThreshold: options.chainThreshold,
     });
     if (options.dryRun) {
       console.log(
