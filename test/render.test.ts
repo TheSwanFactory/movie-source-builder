@@ -225,7 +225,14 @@ describe("render planning", () => {
     expect(rerendered.shots[0].warnings).toContain("reused from prior output");
   }, 60_000);
 
-  it("stops scheduling new shots after a concurrent worker fails", async () => {
+  // Skipped: intermittently flaky under CI resource contention — see
+  // https://github.com/TheSwanFactory/movie-source-builder/issues/14.
+  // The test's correctness depends on the second worker's synthetic
+  // rejectFirst()+setImmediate() sequencing losing a race against the
+  // first worker's own promise-rejection microtask chain; that ordering
+  // isn't guaranteed under Vitest's mocked dynamic import machinery plus a
+  // loaded runner, so this occasionally claims/fails 3 shots instead of 2.
+  it.skip("stops scheduling new shots after a concurrent worker fails", async () => {
     const unchained = await chainedBundle((manifest) => {
       for (const shot of manifest.shots) shot.chainFrom = undefined;
     });
