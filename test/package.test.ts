@@ -14,9 +14,7 @@ describe("published package contents", () => {
     expect(paths).toContain("dist/shoot.js");
     expect(paths).toContain("dist/project.d.ts");
     expect(paths).toContain("scripts/generate-storyboard-prompts.mjs");
-    expect(paths).toContain(
-      "scripts/prompts/03-producer-generate-reference-images.md",
-    );
+    expect(paths).toContain("scripts/prompts/05-producer-generate-boards.md");
     expect(paths).toContain("schemas/msb-shoot.schema.json");
     expect(paths).toContain("schemas/msb-screenplay.schema.json");
     expect(paths).toContain("examples/smoke-test.msb");

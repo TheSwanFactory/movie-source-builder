@@ -1,10 +1,12 @@
 # movie-source-builder
 
 `movie-source-builder` is the npm package for portable, inspectable AI movie
-builds. Its executable is `msb`, and its production pipeline is:
+projects. Its executable is `msb`, and its production loop runs against **one
+project folder** — screenplay, references, shot lists, and every take ever
+rendered, as an append-only, inspectable ledger:
 
 ```text
-source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder Output (.msbo) → movie (.mp4)
+draft screenplay → canonical screenplay + boards → animatic → shot list → shoots (takes) → dailies → cut (.mp4)
 ```
 
 ## Install
@@ -30,13 +32,15 @@ The package is available on npm at `https://www.npmjs.com/package/movie-source-b
 ## Documentation
 
 - **[Quick start: producing a movie](docs/01-quick-start.md)** — the complete
-  pipeline end to end: authoring a bundle, storyboard review, rendering, and
-  export.
+  loop end to end: creating a project, canonicalizing the screenplay,
+  boards and the animatic, shooting, dailies, and the cut.
 - **[Adding a provider](docs/02-adding-providers.md)** — registering a new fal
   model or a new renderer provider entirely.
 - **[Prompt architecture](docs/03-prompt-architecture.md)** — how the numbered
   prompts, the scripts that read them, and image-generating vs.
   non-image-generating agents are meant to interact.
+- **[MSB format v2](docs/04-msb-format.md)** — the project-folder format
+  design: the ledgers, retention model, and every schema.
 - **[Contributing](docs/CONTRIBUTING.md)** — repository layout, project
   invariants, technical decisions, development workflow, and open design work.
 - **[fal rendering setup](msbc/README.fal.md)** and **[engine configurations](msbc/README.md)**

@@ -1,71 +1,85 @@
 # Quick Start: Producing a Movie
 
+A project is **one folder** — screenplay, references, shot lists, and every
+take ever rendered, as an append-only, inspectable ledger. See
+[MSB format v2](04-msb-format.md) for the full design; this document is the
+walkthrough.
+
 Two roles, either of which can be a human or an AI:
 
-- **Author** — makes creative calls: writes the script, casts characters,
-  reviews whether output matches intent.
-- **Producer** — makes it real: turns the script into an MSB, runs the
-  pipeline, controls cost.
+- **Author** — makes creative calls: writes the draft screenplay, owns words
+  and timing, reviews whether output matches intent.
+- **Producer** — makes it real: canonicalizes the draft, breaks the timeline
+  into shots, runs the pipeline, controls cost.
 
-1. **Author** writes the script: screenplay, characters, shot list, in
-   whatever raw form is natural.
-2. **Producer** generates or sources one isolated, neutral-backdrop identity
-   sheet per character/location/prop — no ensemble, no scene action.
-3. **Producer** generates or sources the shot reference images each shot's
-   renderer mode will need, citing those identity sheets as constraints: one
-   ensemble composition per `image-to-video` shot, or identity sheets for
-   `reference-to-video`.
-4. **Author** reviews those reference images — both the entity identity
-   sheets and the shot images — for identity (nothing added, removed, or
-   redesigned) and, for shots, whether a single still can honestly represent
-   the action. A shot with more than one beat that matters gets split into
-   several sequential shots instead of asking one image to imply motion it
-   can't show — which sends the affected shots back to step 3 for their own
-   reference images before this review runs again.
-5. **Producer** opts any shot into chaining (`chainFrom: <earlier-shot-id>`,
-   `image-to-video` only) now, before packing — including shots the Author
-   just split off an earlier one. See
-   [Reference: shot chaining](#reference-shot-chaining) for what chaining
-   verifies at render time.
-6. **Producer** packs the bundle: structures the folder, references the
-   generated images, and runs `msb pack <folder> --out build/movie.msb`.
-7. **Author** reviews look-and-feel on the zero-cost local storyboard, before
-   anything paid happens: `msb storyboard build/movie.msb --out
-build/storyboard.msbo`, then `msb inspect build/storyboard.msbo` and watch
-   the review MP4.
-8. **Producer** optionally generates temporary AI timing narration for that
-   review, instead of `--timing-voices`' local macOS speech.
-9. **Producer** validates and prices the plan: `msb validate
-build/movie.msb --config <engine.msbc>`, `msb render build/movie.msb --config
-<engine.msbc> --dry-run`.
-10. **Author** records sign-off on the reviewed storyboard, hash-bound to the
-    exact source: `msb approve build/storyboard.msbo --source
-build/movie.msb`. This is a durable record for later audit, not an enforced
-    gate — `msb render` does not check it, and nothing today stops a producer
-    from rendering without ever running `storyboard` or `approve` at all.
-11. **Producer** renders within a cost cap: `msb render build/movie.msb
---config <engine.msbc> --out build/movie.msbo --max-cost 2.00`. As a chained
-    shot renders, its predecessor's last frame is tested against its own
-    authored composition — a close match promotes the real frame as the actual
-    render input, a miss fails the shot rather than silently rendering from the
-    stale still.
-12. **Author** reviews the finished cut against intent.
-13. **Producer** exports the deliverable: `msb export build/movie.msbo --out
-build/movie.mp4`.
+1. **Author** writes the draft screenplay in whatever name and format is
+   natural — it is never machine-parsed.
+2. **Producer** creates the project around it: `msb create my-movie --draft
+screenplay.docx` scaffolds the folder and copies the draft verbatim into
+   `drafts/`.
+3. **Producer** canonicalizes the draft into `screenplay.json` — cast ids,
+   timed cues (point cues for action beats, span cues for dialogue and
+   narration), a declared total duration — and fills `msb.json`'s cast. This
+   is a judgment task (pacing lines the draft left implicit), not a
+   conversion. `msb ingest my-movie` then validates it: unique monotonic
+   cues within the duration, no same-speaker overlap, speakers resolving to
+   cast, every cast member with a model sheet or flagged as still needing
+   one.
+4. **Author** confirms the canonical screenplay says what the draft meant —
+   against `msb inspect my-movie --screenplay` (readable screenplay text),
+   never by reading JSON.
+5. **Producer** generates or sources one isolated, neutral-backdrop **model
+   sheet** per cast member (`references/agent-86.png`), then **boards** —
+   reference stills anchored to cues on the screenplay timeline
+   (`references/t0016.0-agents-turn.png`) — indexing each in
+   `references/references.json`. `npm run storyboard:prompts -- my-movie`
+   emits one clean, hashed request per missing image (see
+   [Prompt architecture](03-prompt-architecture.md)).
+6. **Author** reviews the model sheets and boards for identity: nothing
+   added, removed, or redesigned.
+7. **Author** reviews look and feel on the **animatic** — the zero-cost,
+   zero-network review movie assembled from timed cues and boards, before
+   any shot list exists: `msb animatic my-movie`, then watch
+   `cuts/animatic.mp4`.
+8. **Producer** writes the shot list, `shotlists/001.json`: a tiling of the
+   timeline into contiguous shots with spans, references, continuity, and
+   optional per-engine prompt overrides — **no dialogue; it derives from the
+   screenplay cues in each shot's span**. Opt shots into chaining
+   (`"chainFrom": "shot-001"`, `image-to-video` only) here.
+9. **Producer** validates and prices the plan with zero provider requests:
+   `msb shoot my-movie --config msbc/fal-ltx-2.3-fast.msbc --dry-run`. A shot
+   list that cannot tile onto the engine's duration menu is a plan failure
+   with a structured finding, not a mid-shoot surprise.
+10. **Author** gives the go/no-go on the reviewed animatic and the dry-run
+    estimate before real spend.
+11. **Producer** shoots within a cost cap: `msb shoot my-movie --config
+<engine.msbc> --max-cost 2.00`. Takes land directly in the `takes/`
+    pool (`shot-001.t01.mp4` plus an extracted last frame); the shoot itself
+    is one appended JSON in `shoots/` linking source hashes, reused takes,
+    new takes, and findings. As a chained shot renders, its predecessor's
+    last frame is verified against the shot's own composition board — a
+    close match promotes the real frame as the render input, and a drift
+    miss re-renders the predecessor as **additional numbered takes** before
+    failing.
+12. **Author** reviews the dailies: `msb dailies my-movie` lists unreviewed
+    takes; `msb circle my-movie --take shot-001.t02` marks the keeper,
+    `--reject` (optionally `--notes review.md`) records why a take fails —
+    verdicts are appended to the `dailies/` ledger, and the reasoning lands
+    beside the frames it judges as `takes/<take>.notes.md`.
+13. **Producer** assembles the deliverable: `msb cut my-movie` picks each
+    shot's circled take (else its newest never-rejected rendered take),
+    verifies hashes, and writes `cuts/<shoot>.mp4` — never contacting a
+    provider.
 
-That's the whole loop. `msb make <bundle.msb> --config <engine.msbc>`
-collapses the render and export steps into one command. Everything below is
+That's the whole loop. Everything is retained indefinitely by default;
+`msb gc my-movie --dry-run` shows what take media an explicit cleanup would
+reclaim (never ledger JSON, notes, or last frames). Everything below is
 reference for when a step above needs more than the one-line version.
 
-Every artifact path above is rooted under the gitignored `build/` tree,
-never inside a tracked source folder — see
-[Prompt architecture](03-prompt-architecture.md) for why that boundary
-matters.
-
-Ready-to-use prompts for each numbered step above, tagged Author/Producer, are
-the numbered files in [`scripts/prompts/`](../scripts/prompts/README.md) —
-that directory's README describes how an orchestrator can drive an Author and
-a Producer agent through them end to end.
+Ready-to-use prompts for the numbered steps, tagged Author/Producer, are the
+numbered files in [`scripts/prompts/`](../scripts/prompts/README.md) — that
+directory's README describes how an orchestrator can drive an Author and a
+Producer agent through them end to end.
 
 ## Install
 
@@ -77,314 +91,170 @@ msb --help
 Or `npx msb --help` project-local, or build from source with `npm install &&
 npm run build && node dist/cli.js --help`.
 
-## The pipeline stages
+## The project folder
 
 ```text
-source folder → Movie Source Bundle (.msb) + Configuration (.msbc) → Builder Output (.msbo) → movie (.mp4)
+my-movie/                         # the project folder IS the msb
+├── msb.json                      # header: format version, project id/title, cast
+├── drafts/                       # author's screenplay(s), verbatim — never parsed
+├── screenplay.json               # canonical timed screenplay — the timeline authority
+├── references/                   # flat: model sheets + boards + references.json index
+├── shotlists/001.json            # versioned tilings; immutable once any shoot cites them
+├── takes/shot-001.t01.mp4        # flat media pool: media, .last.png, .notes.md per take
+├── shoots/0001-ltx.json          # append-only ledger: one JSON link object per shoot
+├── dailies/0001.json             # append-only review verdicts
+└── cuts/                         # animatic.mp4 and deliverable cuts
 ```
 
-- `.msb` is immutable creative source: structured shots, screenplay,
-  characters, locations, props, and reference assets.
-- `.msbc` is content-independent engine configuration: renderer provider/model,
-  required environment-variable names, and technical output settings. JSON,
-  never contains credential values.
-- `.msbo` is self-contained builder output: generated scenes and audio,
-  rendering notes, hashes, configuration snapshot, costs, status, provenance.
-- `.mp4` is a repeatable delivery export; export never calls an AI provider.
+- `.msbc` is content-independent engine configuration (unchanged from v1):
+  renderer provider/model/mode, required environment-variable names,
+  technical output settings. Never contains credential values.
+- `msb pack my-movie [-o my-movie.msb] [--source-only]` emits a transport
+  `.msb` archive of the folder — a format optimization for shipping or
+  pinning, never the only copy of anything. `--source-only` omits the
+  ledgers and outputs (`takes/`, `shoots/`, `dailies/`, `cuts/`).
+- The scaffolded folder ships a `.gitignore` covering `takes/*.mp4` and
+  `cuts/` — everything else is small, diffable text worth tracking.
 
-Review progresses through checkpoints, each one before spending more:
-`storyboard → previz → render → export`. `storyboard` (step 7 above) is
-implemented today, and chaining a shot's render to its predecessor's actual
-output (step 5 above) is too. `previz` — generating a shot's keyframe with AI
-rather than authoring it, then verifying against that instead — is
-**proposed, not implemented**; see
-[Contributing](CONTRIBUTING.md#shot-chaining-11).
+## Reference: the canonical screenplay
 
-## Reference: authoring a bundle
+`screenplay.json` is the timeline authority: scenes of cues with stable ids.
+Point cues (`at`) mark action beats; span cues (`span: [start, end]`) carry
+dialogue and narration. Dialogue lives here and only here — shot lists never
+repeat it, and at shoot time each shot picks up whatever cues fall inside
+its span. The screenplay records the draft it canonicalizes (`draft`,
+`draftHash`); ingest fails if the draft was edited in place — drafts are
+append-only, so a revision is a new file in `drafts/`.
+
+## Reference: model sheets and boards
+
+`references/` is flat and indexed by `references/references.json`:
+
+- **Model sheets** are timeless identity references, one per cast member,
+  named for the member (`agent-86.png`).
+- **Boards** anchor to a cue (`"anchor": {"cue": "c004", "at": 16, ...}`);
+  the `t0016.0-<slug>.png` filename prefix is a human sort convenience,
+  cosmetic by construction. Boards drive the animatic and serve as shot
+  `composition` references.
 
 ### The reference rule
 
-- `characters[].reference`, `locations[].reference`, and `props[].reference`
-  identify and package reusable source assets. They document entities and
-  participate in cache keys, but are **not automatically composited or sent to
-  a provider**.
-- `shots[].references` is the explicit, role-based provider input for that
-  shot: `identity` (0–3 rasters, one per recurring character, for
-  reference-to-video renderers), `composition` (one starting-frame raster, for
-  image-to-video renderers), `endFrame` (one optional ending-frame raster).
+`shots[].references` is the explicit, role-based provider input per shot:
+`identity` (1–3 rasters for `reference-to-video` renderers), `composition`
+(one starting-frame raster for `image-to-video`), `endFrame` (optional).
+Listing three characters in `shot.characters` does not upload three model
+sheets — a path must appear under `references` to be sent. An unsupported
+role or an out-of-range count for the configured `renderer.mode` fails
+validation at plan time, before credentials, pricing, upload, or generation.
 
-Listing three characters in `shot.characters` does not make three reference
-sheets visible to the provider — a path must appear under `references` to be
-uploaded. Which roles a shot must populate, and how many, depends on the
-`renderer.mode` in the `.msbc`:
+## Reference: shot lists and engine compatibility
 
-- `image-to-video` (fal Hailuo, Veo 3.1 Fast, LTX 2.3 Fast) requires exactly
-  one `composition` raster and rejects `identity`/`endFrame`. For a
-  multi-character shot, that one raster must already show every character
-  together in the desired setting.
-- `reference-to-video` (Veo 3.1 Fast reference-to-video) requires one to three
-  `identity` rasters and rejects `composition`/`endFrame`.
+A shot list tiles the timeline: contiguous, non-overlapping spans covering
+`[0, duration]`. Versions are zero-padded ordinals; a shot list is immutable
+once any shoot cites it — editing means writing the next version, recording
+the screenplay hash it tiles.
 
-An unsupported role, a missing required role, or an out-of-range count for the
-configured mode fails validation at plan creation, before credentials,
-pricing, upload, or generation.
+Per-engine prompt overrides live in `shots[].prompts`, keyed by engine
+config name (e.g. `"fal-ltx-2.3-fast"`) or `provider/model`, with
+`"default": null` meaning "derive from action/camera/continuity". The
+dialogue derived from the screenplay cues is always appended. This is where
+"LTX needs to be told, forcefully, not to hallucinate extra puppets" lives —
+versioned with the shot list instead of lost in a chat.
 
-### Source layout
+An engine's duration menu (e.g. Veo 3.1 Fast: 6s/8s) constrains what spans a
+shot list may use under that engine. `msb shoot` checks this at plan time:
+an impossible tiling is recorded as a **failed shoot** with zero takes, zero
+cost, and a structured `engine-compatibility` finding —
+`msb inspect my-movie --findings` aggregates them across all shoots.
 
-```text
-source/
-├── msb.json
-├── screenplay.md
-├── characters/agent-86.png, agent-99.png, ...   # isolated, neutral backdrop, no ensemble
-├── locations/control-center.png                  # empty of characters
-└── references/control-center-ensemble.png         # image-to-video composition input:
-                                                     # every character + set in one frame
-```
+## Reference: shoots, takes, and dailies
 
-A `reference-to-video` engine uses the individual character sheets directly as
-`identity` — no ensemble composition needed.
+A **shoot** is one renderer invocation against one shot list with one
+engine: a pure JSON link object recording the shot list and engine hashes, a
+snapshot of the resolved configuration, explicit `reused` take links (cache
+keys — shot definition + derived cues + asset hashes + engine — decide reuse),
+the new takes with their metadata (cost, request id, chain score, error),
+findings, and warnings. Media is never copied between shoots.
 
-### Minimal manifest
+A **take** is one rendered attempt at one shot: `takes/<shot>.t<NN>.mp4`
+plus `.last.png` (chaining and evidence) and, once someone judges it,
+`.notes.md`. Take numbers are per-shot monotonic across all shoots. Failed
+attempts stay in the pool — nothing deletes media but explicit `gc`.
 
-```json
-{
-  "formatVersion": "1.1.0",
-  "project": { "id": "agent-skit", "title": "Agent Skit" },
-  "characters": [
-    {
-      "id": "agent-86",
-      "name": "Agent 86",
-      "description": "Red knit sock puppet with an 86 badge",
-      "reference": "characters/agent-86.png"
-    },
-    {
-      "id": "agent-99",
-      "name": "Agent 99",
-      "description": "Blue knit sock puppet with a 99 badge",
-      "reference": "characters/agent-99.png"
-    }
-  ],
-  "locations": [
-    {
-      "id": "control-center",
-      "description": "Cardboard control center",
-      "reference": "locations/control-center.png"
-    }
-  ],
-  "props": [],
-  "shots": [
-    {
-      "id": "scene-001-shot-001",
-      "duration": 6,
-      "characters": ["agent-86", "agent-99"],
-      "location": "control-center",
-      "dialogue": [],
-      "action": "The two puppets address the control room.",
-      "camera": "Locked medium two-shot.",
-      "references": { "composition": "references/control-center-ensemble.png" },
-      "continuity": [
-        "Agent 86 remains red with badge 86 on camera left",
-        "Agent 99 remains blue with badge 99 on camera right"
-      ]
-    }
-  ]
-}
-```
+**Dailies** record verdicts: a take's standing is the latest verdict across
+all sessions — circled, rejected, or unreviewed. An engine-successful take
+that fails human review is `rendered` in its shoot and `rejected` in
+dailies, with the reasoning beside the exact frames it describes.
 
-Render with any `image-to-video` engine, e.g. `msbc/fal-hailuo-02-standard.msbc`.
-For `reference-to-video` (Veo 3.1 Fast, 8-second shots only), drop
-`references.composition` for `references.identity: ["characters/agent-86.png", "characters/agent-99.png"]`
-instead — see [`examples/skit-poc-reference/msb.json`](../examples/skit-poc-reference/msb.json)
-for a complete three-character version.
-
-### Designing for continuity (today's real limits)
-
-Video requests are independent regardless of mode. `continuity` is appended
-to the text prompt — it's guidance, not an identity lock or previous-frame
-handoff. For `image-to-video`, [shot chaining](#reference-shot-chaining)
-(`chainFrom`) now gives a real, if partial, mitigation: a verified real frame
-instead of a static authored guess. `reference-to-video` still has nothing —
-see [Contributing](CONTRIBUTING.md#shot-chaining-11) for what's proposed
-beyond Tier A. In the meantime:
-
-1. Use one canonical `composition` (image-to-video) or the same `identity`
-   sheets (reference-to-video) for every shot in a sequence.
-2. Give characters unmistakable, non-overlapping colors and identity markers.
-3. Repeat concrete invariants in `continuity`: color, badge, screen position,
-   wardrobe, scale, set layout, props. Reference-to-video has no composition
-   image to imply the set, so state location and staging there too.
-4. Keep camera/staging changes modest — large viewpoint shifts give the model
-   more room to redesign characters.
-5. Reference-to-video is markedly worse at holding a static pose (no
-   starting-frame anchor). If a shot's entire content is "nothing moves," state
-   that constraint as the first sentence of `action`, repeat it as a
-   `CRITICAL:` `continuity` entry, and budget for a retry.
-
-### Preflight checklist
-
-- Every shot's `references` only uses roles the configured `renderer.mode`
-  accepts, within its supported count.
-- `image-to-video`: the `composition` raster shows the complete opening
-  composition with every visible character in it.
-- `reference-to-video`: every visible recurring character has an `identity` sheet.
-- Identity and placement invariants are stated concretely in `continuity`.
-- `msb validate` succeeds; `msb render --dry-run` reports the expected shots
-  and cost with zero provider requests.
-
-## Reference: storyboard
-
-`msb storyboard build/movie.msb --out build/storyboard.msbo` validates the
-complete bundle and produces one SVG panel per shot, silent timing-audio
-tracks, an SVG contact sheet, and a review MP4 via the bundled FFmpeg — zero
-network requests. Supplied shot references are displayed as-is; **no
-replacement imagery is generated at this stage**. Add `--timing-voices`
-(macOS) for disposable system-synthesized speech at each dialogue/narration
-time — a timing aid only, never production audio.
-
-`msb approve build/storyboard.msbo --source build/movie.msb` binds approval
-to the exact source and generated artifacts; it fails clearly if any byte of
-the source — screenplay, dialogue, ordering, timing, references, action,
-camera, or continuity — has changed since.
-
-`npm run storyboard:prompts -- build/movie.msb --out storyboard-prompts.json`
-generates a deterministic, hashed prompt plan per shot/dialogue event against
-an already-packed bundle; add `--check` to reject missing or reused shot
-references before storyboard or provider work.
-
-Before packing, the same script also runs directly against a source
-directory — `npm run storyboard:prompts -- <source-dir> --out
-requests.json` — and emits one request per referenced asset (entity identity
-sheets and shot references alike), each tagged `present` or `missing`. Add
-`--require-complete` to fail the command if anything a Producer still needs
-to generate or source is missing, before running `pack` at all. See
-[Prompt architecture](03-prompt-architecture.md#the-reference-image-requestresponse-contract)
-for the request shape and the image-generating-agent contract it hands off
-to.
+`msb inspect my-movie --shot shot-001` joins the pool against the shoot
+ledger: every take of the shot across all engines, with standing, cost, and
+notes. `msb latest my-movie` prints the latest shot list, the latest
+complete shoot, and each shot's current take — computable from folder
+contents alone.
 
 ## Reference: shot chaining
 
-For `image-to-video` shots, set `chainFrom: <earlier-shot-id>` to chain a shot
-to an earlier one in the same manifest (must reference an existing,
-strictly-earlier shot; the shot must still author its own
-`references.composition` — chaining verifies against it, it doesn't replace
-it):
+For `image-to-video` shots, set `chainFrom: "<earlier-shot-id>"` in the shot
+list (the shot must still author its own `references.composition` — chaining
+verifies against it, it doesn't replace it). At shoot time, once the
+predecessor completes, its last frame is compared (ffmpeg SSIM) against the
+chained shot's composition board. A close match promotes the real frame as
+the render input; a miss re-renders the predecessor fresh — **each retry an
+additional numbered take in the pool, reviewable in any later dailies
+session** — up to 3 total predecessor renders before failing with every
+measured score. Whenever any shot chains, `--concurrency` clamps to 1.
 
-```json
-{
-  "id": "scene-001-shot-002",
-  "chainFrom": "scene-001-shot-001",
-  "references": { "composition": "references/scene-001-shot-002.png" }
-}
-```
+This is a pixel/structural-similarity heuristic, not semantic drift
+detection. It only runs against real (`fal`) renders; the mock provider
+never consumes composition images, so chained mock shots keep ordering but
+skip the check.
 
-At render time, once `scene-001-shot-001` completes, its last frame is
-extracted and compared (via ffmpeg's SSIM filter) against
-`scene-001-shot-002`'s own authored composition. A close-enough match promotes
-the real extracted frame as the actual render input instead of the authored
-still; a miss re-renders the predecessor fresh and retries the check, up to 3
-total predecessor attempts, before finally failing with a message naming the
-shot, predecessor, attempt count, and every measured score — it never
-silently falls back to the stale still. `msb render --dry-run` reports the
-dependency and cache key with zero provider requests. Whenever any shot in a
-manifest uses `chainFrom`, `--concurrency` is clamped to 1 for the whole
-render, not just within the chain — this keeps retry behavior simple by
-construction.
+## Reference: cost and safety controls
 
-This is a deterministic pixel/structural-similarity heuristic, not semantic
-drift detection — it can tell "this looks like that," not "the scene evolved
-the way it was supposed to." Retry doesn't change that: it only re-samples the
-same prompt/inputs on the chance a low score was non-deterministic bad luck.
-It only runs against real (`fal`) renders; the mock provider never consumes
-composition images at all, so chained mock shots wait for ordering but skip
-the check. Once the 3 attempts are exhausted, next steps are editing the
-predecessor (or its prompt) and rerunning, or rerunning with a different
-engine via `--config` (e.g. `msbc/fal-veo-3.1-fast.msbc`, the only other
-configured engine that's both audio-capable and chaining-compatible) — the
-existing resumable/cache-key model already makes either a normal `msb render`,
-nothing special. Full design and architectural detail:
-[Contributing: shot chaining](CONTRIBUTING.md#shot-chaining-11).
-
-## Reference: previz (proposed — not implemented)
-
-A separate, still-unimplemented enhancement on top of chaining above: instead
-of a producer authoring every shot's `composition` by hand, generate it with
-AI up front, review the whole sequence as a storyboard, then let chaining
-verify against those generated keyframes the same way it already verifies
-against authored ones. Chaining does not wait on this — it already works
-against whatever composition a shot authors today. Open questions and
-architectural notes: [Contributing](CONTRIBUTING.md#shot-chaining-11).
-
-## Reference: render and export
-
-`--dry-run` plans with zero provider requests and reports missing renderer
-environment variables without exposing values. `--max-cost <usd>` rejects a
-render before new work begins if estimated cost is too high. Cache keys
-include the shot, complete engine configuration, and referenced asset hashes;
-completed shots are reused across resumed renders, and state is checkpointed
-atomically after every shot.
-
-Without `--out`, `render`/`make` write next to the source bundle, named
-`<msb>-<msbc>.msbo`/`.mp4` — deterministic, not timestamped, so rerunning the
-same bundle against the same configuration resolves to the same path and
-picks up exactly where the last render left off, with no separate cache store
-and no need to pass `--out` or `--work-dir` yourself just to get reuse.
-Rendering the same bundle against a different `--config` gets its own file,
-since the config name is part of the default path. `--config` defaults to the
-packaged [`msbc/default.msbc`](../msbc/default.msbc) (cheapest configured paid
-engine); use `msbc/mock.msbc` for a provider-free render. `msb verify-auth
-[--config ...]` checks declared environment variables through the renderer
-adapter without submitting a generation request or printing credential
-values.
-
-`msb export build/movie.msbo` verifies hashes, normalizes media, never
-contacts a provider, and rejects incomplete or tampered output. Without
-`--out`, it writes `<msbo-basename>.mp4` next to the source `.msbo`; either
-way, an existing file at that path is left alone unless `--force` is passed.
-
-`msb storyboard build/movie.msb` defaults the same way, to
-`<msb>-storyboard.msbo` next to the source bundle. Since storyboards are
-otherwise freely regenerable, a default-path rerun silently overwrites an
-unapproved one — but never one that's already been through `msb approve`;
-that requires `--force`, so a stray rerun can't silently invalidate a
-recorded approval.
-
-Ready-to-use mock, Hailuo 02 Standard, Veo 3.1 Fast, and LTX 2.3 Fast profiles
-are documented under [`msbc/README.md`](../msbc/README.md). See
-[Adding a provider](02-adding-providers.md) to register a new one.
+- `msb shoot --dry-run` plans, prices (fallback rates), and reports findings
+  with zero provider requests and zero writes.
+- `--max-cost <usd>` rejects a shoot before new work begins if the live
+  estimate is too high; nothing is appended in that case.
+- `msb verify-auth [--config ...]` checks declared environment variables
+  through the renderer adapter without submitting a generation request or
+  printing credential values. `--config` defaults to the packaged
+  [`msbc/default.msbc`](../msbc/default.msbc); use `msbc/mock.msbc` for a
+  provider-free shoot.
+- Archive reads reject absolute paths, traversal, links, duplicate entries,
+  and oversized expansion; no path in any project file may resolve outside
+  the project root. Credentials are read only from the environment.
+  Automated tests use only the mock renderer and never submit paid requests.
 
 ## Reference: CLI
 
 ```text
-msb pack <source-dir> --out <bundle.msb>
-msb validate <bundle.msb> [--config <config.msbc>]
-msb inspect <bundle.msb|config.msbc|output.msbo> [--json]
+msb create <folder> --draft <file>
+msb ingest <folder>
+msb animatic <folder> [-o <file>]
+msb shoot <folder> [--config <engine.msbc>] [--dry-run] [--max-cost <usd>]
+          [--concurrency <n>] [--fresh]
+msb dailies <folder> [--json]
+msb circle <folder> --take <id> [--reject] [--notes <file>] [--by <name>]
+msb cut <folder> [--shoot <id>] [-o <file>]
+msb latest <folder> [--json]
+msb gc <folder> [--dry-run]
+msb inspect <folder|config.msbc> [--json] [--findings] [--shot <id>] [--screenplay]
 msb verify-auth [--config <config.msbc>] [--json]
-msb storyboard <bundle.msb> [--out <storyboard.msbo>] [--timing-voices] [--force]
-msb approve <storyboard.msbo> --source <bundle.msb>
-msb render <bundle.msb> [--config <config.msbc>] [--out <output.msbo>] [--dry-run] [--work-dir <path>]
-           [--concurrency <n>] [--max-cost <usd>] [--force] [--keep-work-dir]
-msb export <output.msbo> [--out <movie.mp4>] [--force]
-msb make <bundle.msb> [--config <config.msbc>] [--out <movie.mp4>] [render options]
+msb pack <folder> [-o <file>] [--source-only]
 ```
 
 Exit codes: `0` success, `2` usage, `3` validation, `4` credentials, `5` cost
-limit, `6` provider/render, `7` media/export, `130` interrupted.
-
-## Reference: safety and cost controls
-
-Archive reads reject absolute paths, traversal, links, duplicate normalized
-entries, oversized entries, excessive entry counts, and excessive expansion.
-Credentials are read only from the environment and never stored in source,
-configuration, output, reports, caches, or logs. Automated tests use only the
-mock renderer and never submit paid requests.
+limit.
 
 ## Example
 
 [`examples/skit-poc`](../examples/skit-poc) — "Agent Autonomy Skit": three
-explicitly framed knit sock puppets, one location, timed dialogue, continuity
-constraints, three 10-second shots. Demonstrates the ensemble-reference
-pattern above.
+explicitly framed knit sock puppets, one location, an 11-cue canonical
+screenplay over 32 seconds, four boards, and a four-shot chained shot list
+with an LTX prompt override.
 
-[`examples/smoke-test.msb`](../examples/smoke-test.msb) — a provider-ready
-single-shot bundle for testing engine configurations, see
+[`examples/smoke-test`](../examples/smoke-test) and
+[`examples/smoke-test-reference`](../examples/smoke-test-reference) —
+provider-ready single-shot projects for testing engine configurations
+(packed copies ship as `examples/*.msb`), see
 [`msbc/README.md`](../msbc/README.md).

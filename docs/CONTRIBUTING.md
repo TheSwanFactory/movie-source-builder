@@ -3,14 +3,15 @@
 ## Repository layout
 
 ```text
-src/            flat, single-purpose modules: cli.ts, schema.ts, archive.ts,
-                render.ts, storyboard.ts, export.ts, paths.ts, index.ts
-test/           one *.test.ts per src module, plus e2e.test.ts and
-                renderer-contract.test.ts
-examples/       distributable sample sources (skit-poc, smoke-test, ...)
+src/            flat, single-purpose modules: cli.ts, schema.ts, project.ts,
+                render.ts, shoot.ts, animatic.ts, cut.ts, dailies.ts, gc.ts,
+                inspect.ts, scaffold.ts, pack.ts, archive.ts, chain.ts, index.ts
+test/           suites per concern (schema, ingest, shoot, lifecycle, ...),
+                with a shared fixture builder in test/helpers.ts
+examples/       distributable sample projects (skit-poc, smoke-test, ...)
 msbc/           engine (.msbc) configuration profiles + their own README
 schemas/        generated JSON Schemas (npm run build regenerates these)
-scripts/        storyboard prompt-plan generation
+scripts/        prompt steps + reference-image request-plan generation
 ```
 
 There is no `src/cli/`, `src/schema/`, or similar subdirectory structure —
@@ -20,17 +21,19 @@ each concern is one flat file.
 
 These are enforced by tests and code review, not aspirational:
 
-- No provider secrets are persisted anywhere: not in `.msb`, `.msbc`, `.msbo`,
-  reports, caches, or logs. `.msbc` records only required environment-variable
-  _names_; values are read from the environment at call time only.
-- No paid request occurs in tests, dry-run, `validate`, `inspect`, `storyboard`,
-  or `export`. Automated tests use only the mock renderer.
+- No provider secrets are persisted anywhere: not in the project folder,
+  `.msbc`, `.msb` archives, reports, caches, or logs. `.msbc` records only
+  required environment-variable _names_; values are read from the
+  environment at call time only.
+- No paid request occurs in tests, dry-run, `ingest`, `inspect`, `animatic`,
+  or `cut`. Automated tests use only the mock renderer.
 - Input archives are never trusted or extracted without complete
   central-directory entry validation (absolute paths, traversal, links,
   duplicate normalized names, oversized/excessive entries all rejected before
   any payload is read).
-- Render state is recoverable and written atomically (temp file + rename) after
-  every completed shot.
+- Ledger files (shoots, dailies) are append-only and written atomically
+  (temp file + rename); take media lands durably in the pool and is deleted
+  only by explicit `msb gc`, never as a side effect of rendering.
 - A `.msbc` is content-independent: it may describe a renderer engine and
   output settings, but never a project, style, character, voice, shot,
   duration, or credential value. The strict schema rejects anything else.
@@ -45,19 +48,22 @@ These are enforced by tests and code review, not aspirational:
 `msb` binary. The repository/package describes the product; the short binary
 names the artifact workflow.
 
-**Container handling.** Treat `.msb` and `.msbo` as ZIP containers but validate
-all central-directory entries before reading payloads. Treat `.msbc` as a
-separately validated JSON configuration. This stays portable and inspectable
-while defending against traversal, duplicate, link, and expansion attacks.
+**Container handling.** Treat transport `.msb` archives as ZIP containers but
+validate all central-directory entries before reading payloads. Treat `.msbc`
+as a separately validated JSON configuration. This stays portable and
+inspectable while defending against traversal, duplicate, link, and expansion
+attacks. Since v2 the archive is a format optimization only — the project
+folder is the format (see [MSB format v2](04-msb-format.md)).
 
-**Output lifecycle.** Build output in a work directory with atomic JSON
-checkpoints, then package a self-contained `.msbo`. ZIP mutation is poorly
-suited to durable incremental state; atomic workspace state gives clean
-recovery on interruption.
+**Output lifecycle.** Render take media directly into the durable `takes/`
+pool and append one shoot JSON per run; there is no disposable work
+directory holding the only copy of anything, and failed attempts survive as
+evidence.
 
-**Media runtime.** Bundle FFmpeg and keep provider calls outside export. This
-gives repeatable installs and re-encoding without cost or credentials, and
-means export can never accidentally trigger paid generation.
+**Media runtime.** Bundle FFmpeg and keep provider calls outside `animatic`
+and `cut`. This gives repeatable installs and re-encoding without cost or
+credentials, and means assembling a movie can never accidentally trigger
+paid generation.
 
 ## Development
 
@@ -71,12 +77,13 @@ npm run smoke        # node dist/cli.js --help
 npm run check        # all of the above, plus schema-drift and smoke-test dry-runs
 ```
 
-`npm run check` validates and resolves every runnable `.msbc`, dry-runs each
-profile against the checked-in smoke-test `.msb`, independently validates
-representative `.msb`/`.msbc`/`.msbo` documents against the published JSON
-Schemas, exercises the mock `.msb → .msbo → .mp4` pipeline, and rejects stale
-generated schemas. This must pass before merge; real fal generation stays an
-explicit manual operation requiring credentials, never something CI runs.
+`npm run check` validates and resolves every runnable `.msbc`, plans the
+smoke-test example projects against the fal profiles, independently
+validates the example project documents against the published JSON Schemas,
+exercises the mock create → ingest → shoot → dailies → cut lifecycle, and
+rejects stale generated schemas. This must pass before merge; real fal
+generation stays an explicit manual operation requiring credentials, never
+something CI runs.
 
 ## Publishing
 
@@ -244,23 +251,24 @@ is already baked in by the time anyone checks.
     clip — real motion/video context, not a derived still. This is the one the
     issue's "real cross-shot continuity" language is actually about, and it
     carries the full architectural cost below. Its duration is fixed at
-    7s/720p by the endpoint, which is not just a capability nuance: `duration`
-    is a hardcoded `z.union([z.literal(6), z.literal(8), z.literal(10)])` in
-    [`src/schema.ts`](../src/schema.ts) today — 7s cannot be written in a
-    manifest at all without a schema change first.
+    7s/720p by the endpoint — since v2 that is no longer a schema problem
+    (shot spans are free-form numbers) but a duration-menu entry: a 7s span
+    is valid exactly when the engine's registered `durations` say so, and an
+    impossible tiling is recorded as an `engine-compatibility` finding at
+    plan time.
 
 ### The architectural cost — how Tier A actually solved it
 
 The naive plan assumed a chained unit's cache key would need the predecessor's
 _actual rendered bytes_ (`mediaHash`), which don't exist until the predecessor
-finishes — implying `createPlan` would need to express chained units as
+finishes — implying plan creation would need to express chained units as
 "pending, depends on unit N" rather than a resolved hash. That turned out to
-be unnecessary. Since `chainFrom` must point strictly backward, `createPlan`
-instead threads a `Map<shotId, cacheKey>` forward while it processes
-`manifest.shots` in order, and folds the **predecessor's already-computed cache
+be unnecessary. Since `chainFrom` must point strictly backward, `planShoot`
+instead threads a `Map<shotId, cacheKey>` forward while it processes the
+shot list in order, and folds the **predecessor's already-computed cache
 key** (not its media) into the chained shot's own hash:
-`hash({ shot, refs, engine, chainFrom: predecessorCacheKey })`. This is fully
-resolvable at plan time — `msb render --dry-run` needs no special-casing to
+`hash({ shot, cues, prompt, refs, engine, chainFrom: predecessorCacheKey })`.
+This is fully resolvable at plan time — `msb shoot --dry-run` needs no special-casing to
 report it — and still cascades correctly: if the predecessor's authored
 content changes, its cache key changes, which changes the child's, making it
 ineligible for reuse. This uses the same "cache key is the identity" model
@@ -377,8 +385,8 @@ See [#11](../../../issues/11) for the authoritative list. Status against Tier A:
 - Automatically chaining every shot without explicit opt-in.
 - Automatic prompt-tweaking or AI-judged semantic retry — bounded retry only
   re-samples the same prompt/inputs mechanically; failure after
-  `CHAIN_DRIFT_MAX_ATTEMPTS` still stops the render with a clear message, and
-  rerunning after a manual edit beyond that is a normal `msb render`, not new
+  `CHAIN_DRIFT_MAX_ATTEMPTS` still stops the shoot with a clear message, and
+  rerunning after a manual edit beyond that is a normal `msb shoot`, not new
   machinery.
 - A CLI/config flag to bypass or tune the similarity threshold or the retry
   attempt count — both remain fixed constants (`CHAIN_SIMILARITY_THRESHOLD`,

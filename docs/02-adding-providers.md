@@ -24,9 +24,11 @@ export interface RendererCapabilities {
 `.msbc` configuration declares `renderer.mode`; plan creation rejects a model
 whose registered capabilities don't match that declared mode, and rejects any
 shot whose `references` use an unsupported role or an out-of-range count for
-that mode — all before credentials, pricing, upload, or generation. This is the
-single source of truth: nothing else in the codebase decides what a shot is
-allowed to send a given renderer.
+that mode — all before credentials, pricing, upload, or generation. A shot
+list whose spans fall outside the model's `durations` menu is not a hard
+error but a plan-time `engine-compatibility` finding, recorded to the shoot
+ledger. This is the single source of truth: nothing else in the codebase
+decides what a shot is allowed to send a given renderer.
 
 ## Add a new fal model
 
@@ -43,7 +45,7 @@ allowed to send a given renderer.
    the correct request shape for that endpoint.
 4. **Cover both the capability contract and the mapping** in
    [`test/renderer-contract.test.ts`](../test/renderer-contract.test.ts) and
-   [`test/render.test.ts`](../test/render.test.ts). An unregistered model is
+   [`test/shoot.test.ts`](../test/shoot.test.ts). An unregistered model is
    always rejected during plan creation; a test should assert that rejection
    for at least one invalid shot, alongside the happy path.
 5. **Write a `.msbc` profile** for it under [`msbc/`](../msbc/README.md). See
@@ -51,10 +53,10 @@ allowed to send a given renderer.
    configuration files — `renderer.provider`, `renderer.model`,
    `renderer.mode`, `requiredEnvironmentVariables`, and the `extends` chain for
    output settings.
-6. **Smoke-test it** against the packaged single-shot bundles
-   (`examples/smoke-test.msb` for `image-to-video`, `examples/smoke-test-reference.msb`
-   for `reference-to-video`) — validate and dry-run first, then a real,
-   cost-capped render. See
+6. **Smoke-test it** against the single-shot example projects
+   (`examples/smoke-test` for `image-to-video`,
+   `examples/smoke-test-reference` for `reference-to-video`) — dry-run
+   first, then a real, cost-capped shoot. See
    [`msbc/README.md`](../msbc/README.md#smoke-test-a-configuration) for the
    exact commands.
 7. `npm test` discovers every `.msbc` file in `msbc/` and rejects invalid
@@ -66,18 +68,19 @@ ship a shot that reaches a provider with an unvalidated input shape.
 
 ## Add a genuinely new provider
 
-`renderMovie`'s worker loop in [`src/render.ts`](../src/render.ts) branches on
-`plan.configuration.renderer.provider === "fal"`, calling either
-`renderFalShot` (real generation, applies live pricing, uploads references) or
-`renderMockShot` (synthesizes a tiny valid H.264/AAC clip locally, zero cost, no
-network). A new provider needs:
+`runShoot`'s worker loop in [`src/shoot.ts`](../src/shoot.ts) branches on
+`configuration.renderer.provider === "fal"`, calling either `renderFalClip`
+(real generation, applies live pricing, uploads references) or
+`renderMockClip` (synthesizes a tiny valid H.264/AAC clip locally, zero
+cost, no network) from [`src/render.ts`](../src/render.ts). A new provider
+needs:
 
-- Its own `render<Provider>Shot` function following that same contract: take
-  the plan/unit/output paths, produce a media file at the given path, return a
-  request identifier.
+- Its own `render<Provider>Clip` function following that same contract: take
+  the clip request and output path, produce a media file at that path,
+  return a request identifier.
 - Its own capability-registration structure analogous to
-  `falModelCapabilities`, wired into `validateRendererInputs` so the same
-  before-any-request preflight applies.
+  `falModelCapabilities`, wired into `rendererCapabilities` and
+  `validateShotReferences` so the same before-any-request preflight applies.
 - Its own credential contract: declare required environment-variable names via
   `requiredEnvironmentVariables` in `.msbc`, verify them through `verify-auth`
   without submitting a generation request, and never persist or log a

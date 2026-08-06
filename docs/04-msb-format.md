@@ -1,10 +1,10 @@
 # MSB Format v2: The Project Folder
 
-**Status: proposed design for [#13](https://github.com/TheSwanFactory/movie-source-builder/issues/13). Nothing here is implemented.**
+**Status: implemented (v0.7.0), resolving [#13](https://github.com/TheSwanFactory/movie-source-builder/issues/13).**
 
-This document redesigns the `msb`/`msbo` formats around the direction chosen
-in #13's discussion: not a patch to the current archive-in, archive-out
-pipeline, but a restart. A project is **one folder** that contains the
+This document is the design of the v2 format, which replaced the v1
+archive-in, archive-out pipeline around the direction chosen in #13's
+discussion: not a patch, but a restart. A project is **one folder** that contains the
 screenplay, its reference images, the shot lists that divide it into
 renderable shots, and every take ever rendered for it — as an append-only,
 inspectable ledger. The single-file archive survives only as a transport
@@ -17,17 +17,17 @@ format hangs off, and ingest validation gates the result. Everything
 downstream — boards, shot lists, shoots, cuts — anchors to the canonical
 screenplay's timeline.
 
-There is **no migration and no backward compatibility**: v2 replaces v1
-outright. Exactly one real project exists
-([`examples/skit-poc`](../examples/skit-poc)), and it gets restructured by
+There is **no migration and no backward compatibility**: v2 replaced v1
+outright. Exactly one real project existed
+([`examples/skit-poc`](../examples/skit-poc)), and it was restructured by
 hand; no compatibility code is written or promised.
 
 [`docs/01-quick-start.md`](01-quick-start.md) and
-[`docs/03-prompt-architecture.md`](03-prompt-architecture.md) describe the
-current (v1) formats; where this design contradicts them, this document is
-the intended future and they are the present. The
-[impact section](#impact-on-v1-assumptions-and-commands) lists every such
-contradiction explicitly.
+[`docs/03-prompt-architecture.md`](03-prompt-architecture.md) now describe
+the v2 formats this document specified. The
+[impact section](#impact-on-v1-assumptions-and-commands) records every place
+the redesign contradicted the v1 assumptions those documents used to
+describe.
 
 ## Why start over
 

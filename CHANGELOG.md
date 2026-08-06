@@ -2,7 +2,66 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.7.0] - 2026-08-05
+
+MSB format v2: the project folder ([#13](https://github.com/TheSwanFactory/movie-source-builder/issues/13)).
+No migration and no backward compatibility — v2 replaces v1 outright, per
+[`docs/04-msb-format.md`](docs/04-msb-format.md).
+
+### Added
+
+- **The project folder is the format**: `msb.json` (header + cast), verbatim
+  `drafts/`, the canonical timed `screenplay.json` (stable cue ids, point and
+  span cues, declared duration — dialogue lives here and only here), flat
+  `references/` (model sheets + cue-anchored boards + `references.json`
+  index), versioned `shotlists/` tilings, a flat `takes/` pool
+  (`<shot>.tNN.mp4` + `.last.png` + `.notes.md`, per-shot monotonic numbers),
+  append-only `shoots/` and `dailies/` ledgers, and `cuts/`. Six new zod +
+  generated JSON schemas at `formatVersion` 2.0.0; safe-relative-path
+  discipline and hash-linking throughout.
+- **New CLI**: `msb create --draft`, `ingest` (schema + semantic
+  validation), `animatic` (zero-network review movie from cues + boards),
+  `shoot --config` (plan validation incl. engine duration menus recorded as
+  findings; cache reuse as explicit `reused` links; failed plans written as
+  shoots; take media lands directly in the pool), `dailies`, `circle
+[--reject] [--notes]`, `cut` (circled take else newest never-rejected;
+  hash-verified), `latest`, `gc [--dry-run]` (take `.mp4` only — never
+  ledger JSON, notes, or last frames), `inspect
+[--json|--findings|--shot|--screenplay]`, `verify-auth`, and `pack
+[--source-only]`. Exit codes and cost controls (`--dry-run`, `--max-cost`,
+  `--concurrency` with chain clamping) carry over from v1.
+- **Structured findings**: engine-compatibility facts (e.g. "Veo 3.1 Fast
+  renders 6s/8s only") are discovered at plan time for free, recorded in the
+  shoot ledger, and aggregated by `msb inspect --findings` — never again a
+  fact that lives only in a chat transcript.
+- Chain drift retries now write each predecessor re-render as an
+  **additional numbered take** in the pool, reviewable in any later dailies
+  session; the successor records its promoted-frame `chainScore`.
+- Producer canonicalization prompt step
+  (`scripts/prompts/02-producer-canonicalize-screenplay.md`) and an Author
+  confirmation step against `msb inspect --screenplay`; the prompt sequence
+  renumbered around the v2 loop.
+
+### Changed
+
+- `.msbc` engine configurations are unchanged; every shoot snapshots the
+  resolved configuration and its hash.
+- `examples/skit-poc` restructured by hand into a v2 project (11-cue
+  canonical screenplay over 32s, four boards, a chained four-shot list with
+  an LTX prompt override); smoke tests rebuilt as v2 project folders;
+  `examples/skit-poc-reference` removed (exactly one real project).
+- Docs rewritten around the folder-first flow: quick start, prompt
+  architecture, msbc READMEs; `docs/04-msb-format.md` status flipped to
+  implemented.
+
+### Removed
+
+- The v1 pipeline and formats: `msb pack`-as-gate, `validate`,
+  `storyboard`/`approve`, `render`, `export`, `make`; `.msbo` outputs,
+  work-dir promotion, `--keep-work-dir`; dialogue duplication between
+  screenplay and manifest. v1 files are no longer readable.
+
+## [0.6.1] - unreleased v1 work, shipped as part of 0.7.0
 
 ### Added
 

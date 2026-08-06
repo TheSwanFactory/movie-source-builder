@@ -1,7 +1,7 @@
 {
   "name": "movie-source-builder",
-  "version": "0.6.0",
-  "description": "Build, validate, render, and export portable AI movie source bundles",
+  "version": "0.7.0",
+  "description": "Build, shoot, review, and cut portable AI movie project folders",
   "type": "module",
   "bin": {
     "msb": "dist/cli.js"

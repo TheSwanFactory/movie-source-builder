@@ -44,34 +44,29 @@ Create a descriptively named `.msbc` file in this directory:
 
 The schema is [`schemas/msbc-configuration.schema.json`](../schemas/msbc-configuration.schema.json). Base files may define only reusable output or renderer fields; the fully resolved configuration must contain both. The top-level object is strict, so content-specific or misspelled fields are rejected.
 
-For a new fal endpoint, confirm its official API contract, then register its capabilities (mode, accepted reference roles and counts, supported durations, media types, and audio support) in `falModelCapabilities` in [`src/render.ts`](../src/render.ts). Add its input mapping to `falInput` (image-to-video) or `falReferenceInput` (reference-to-video), and cover both the capability contract and the mapping in [`test/renderer-contract.test.ts`](../test/renderer-contract.test.ts) and [`test/render.test.ts`](../test/render.test.ts). An unregistered model is always rejected during plan creation, before any credentials, pricing, upload, or generation request.
+For a new fal endpoint, confirm its official API contract, then register its capabilities (mode, accepted reference roles and counts, supported durations, media types, and audio support) in `falModelCapabilities` in [`src/render.ts`](../src/render.ts). Add its input mapping to `falInput` (image-to-video) or `falReferenceInput` (reference-to-video), and cover both the capability contract and the mapping in [`test/renderer-contract.test.ts`](../test/renderer-contract.test.ts) and [`test/shoot.test.ts`](../test/shoot.test.ts). An unregistered model is always rejected during plan creation, before any credentials, pricing, upload, or generation request.
 
 ## Smoke-test a configuration
 
-[`examples/smoke-test.msb`](../examples/smoke-test.msb) is a ready-to-render bundle with one six-second shot and one 16:9 PNG `composition` reference, for `image-to-video` configurations. Its unpacked source is under [`examples/smoke-test/`](../examples/smoke-test/).
+[`examples/smoke-test/`](../examples/smoke-test/) is a ready-to-shoot project folder with one six-second shot and one 16:9 PNG `composition` board, for `image-to-video` configurations (a packed copy ships as [`examples/smoke-test.msb`](../examples/smoke-test.msb)).
 
-[`examples/smoke-test-reference.msb`](../examples/smoke-test-reference.msb) is the equivalent bundle for `reference-to-video` configurations: one eight-second shot with a single `identity` reference. Its unpacked source is under [`examples/smoke-test-reference/`](../examples/smoke-test-reference/). Substitute it for `reference-to-video` engines in the commands below.
+[`examples/smoke-test-reference/`](../examples/smoke-test-reference/) is the equivalent project for `reference-to-video` configurations: one eight-second shot with a single `identity` model sheet. Substitute it for `reference-to-video` engines in the commands below.
 
-First validate the configuration and bundle without provider calls:
+Shoots append to the project folder, so smoke-test against a scratch copy:
 
 ```bash
+cp -R examples/smoke-test /tmp/smoke-test
 msb inspect msbc/my-engine.msbc
-msb validate examples/smoke-test.msb
-msb render examples/smoke-test.msb \
-  --config msbc/my-engine.msbc \
-  --out smoke.msbo \
-  --dry-run
+msb ingest /tmp/smoke-test
+msb shoot /tmp/smoke-test --config msbc/my-engine.msbc --dry-run
 ```
 
-The dry run loads live fal pricing but does not upload the image or submit a generation request. Review the estimate, then set an explicit ceiling for the real test:
+The dry run plans and estimates (fallback rates) with zero provider requests and zero writes. Review the plan — an engine whose duration menu cannot tile the shot list is reported as a finding here — then set an explicit ceiling for the real test:
 
 ```bash
-msb render examples/smoke-test.msb \
-  --config msbc/my-engine.msbc \
-  --out smoke.msbo \
-  --max-cost 1.00
-msb inspect smoke.msbo
-msb export smoke.msbo --out smoke.mp4
+msb shoot /tmp/smoke-test --config msbc/my-engine.msbc --max-cost 1.00
+msb latest /tmp/smoke-test
+msb cut /tmp/smoke-test
 ```
 
-Finally run `npm test`. The schema suite discovers every `.msbc` file in this directory and rejects invalid profiles automatically.
+Live fal pricing is applied at the start of the real shoot, before any upload or generation, and `--max-cost` gates on it. Finally run `npm test`. The schema suite discovers every `.msbc` file in this directory and rejects invalid profiles automatically.

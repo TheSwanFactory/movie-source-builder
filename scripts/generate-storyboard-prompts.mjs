@@ -40,13 +40,13 @@ if (!(await stat(source)).isDirectory())
 const root = path.dirname(fileURLToPath(import.meta.url));
 const entityTemplate = stripFrontmatter(
   await readFile(
-    path.join(root, "prompts/02-producer-generate-entity-references.md"),
+    path.join(root, "prompts/04-producer-generate-model-sheets.md"),
     "utf8",
   ),
 );
 const imageTemplate = stripFrontmatter(
   await readFile(
-    path.join(root, "prompts/03-producer-generate-reference-images.md"),
+    path.join(root, "prompts/05-producer-generate-boards.md"),
     "utf8",
   ),
 );
@@ -164,11 +164,11 @@ const report = {
   directory: path.resolve(source),
   templates: {
     entity: {
-      path: "scripts/prompts/02-producer-generate-entity-references.md",
+      path: "scripts/prompts/04-producer-generate-model-sheets.md",
       hash: hash(entityTemplate),
     },
     image: {
-      path: "scripts/prompts/03-producer-generate-reference-images.md",
+      path: "scripts/prompts/05-producer-generate-boards.md",
       hash: hash(imageTemplate),
     },
   },
