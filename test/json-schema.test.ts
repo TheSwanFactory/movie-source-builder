@@ -104,7 +104,14 @@ describe("published JSON Schemas", () => {
     const dailies = {
       formatVersion: "2.0.0",
       dailies: { id: "0001", at: "2026-08-05T00:00:00.000Z", by: "author" },
-      verdicts: [{ take: "shot-001.t01", verdict: "circled" }],
+      observations: [
+        { subject: { take: "shot-001.t01" }, verdict: "circled" },
+        {
+          subject: { cut: "0002-default", span: [22, 32] },
+          text: "Final scene insane.",
+          attachments: ["dailies/0001/insane-ending.png"],
+        },
+      ],
     };
     expect(validate(dailies), JSON.stringify(validate.errors)).toBe(true);
   });

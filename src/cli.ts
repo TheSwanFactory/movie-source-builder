@@ -6,7 +6,12 @@ import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
 import { createAnimatic } from "./animatic.js";
 import { createCut } from "./cut.js";
-import { appendVerdict, listUnreviewed } from "./dailies.js";
+import {
+  appendObservation,
+  describeSubject,
+  listObservations,
+  listUnreviewed,
+} from "./dailies.js";
 import { collectGarbage } from "./gc.js";
 import {
   aggregateFindings,
@@ -109,6 +114,11 @@ program
   .option("--max-cost <usd>", "maximum new generation cost", number)
   .option("--concurrency <number>", "parallel requests", number, 2)
   .option("--fresh", "ignore reusable takes and render every shot")
+  .option(
+    "--chain-threshold <number>",
+    "override the chain drift SSIM threshold for this shoot (default 0.6); recorded in the shoot's warnings",
+    number,
+  )
   .action(async (folder, options) => {
     const result = await runShoot(folder, {
       configuration: options.config ?? DEFAULT_CONFIGURATION,
@@ -116,6 +126,7 @@ program
       maxCost: options.maxCost,
       concurrency: options.concurrency,
       fresh: options.fresh,
+      chainThreshold: options.chainThreshold,
     });
     if (options.dryRun) {
       console.log(
@@ -150,42 +161,131 @@ program
     );
   });
 
+const parseSpan = (value: string): [number, number] => {
+  const match = /^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/.exec(value);
+  if (!match)
+    throw new InvalidArgumentError(
+      "span must be <start>-<end> in seconds, e.g. 22-32",
+    );
+  return [Number(match[1]), Number(match[2])];
+};
+
 program
   .command("dailies")
-  .description("List rendered takes no review session has judged yet")
+  .description(
+    "List rendered takes no review session has judged yet, and past observations",
+  )
   .argument("<folder>")
   .option("--json")
   .action(async (folder, options) => {
     const unreviewed = await listUnreviewed(folder);
+    const observations = await listObservations(folder);
     if (options.json) {
-      console.log(JSON.stringify(unreviewed, null, 2));
+      console.log(JSON.stringify({ unreviewed, observations }, null, 2));
       return;
     }
-    console.log(
+    const lines = [
       unreviewed.length === 0
         ? "No unreviewed takes."
         : unreviewed
             .map((take) => `${take.take}  (shoot ${take.shootId})`)
             .join("\n"),
-    );
+    ];
+    if (observations.length > 0)
+      lines.push(
+        "Observations:",
+        ...observations.map(
+          (observation) =>
+            `  [${observation.session} by ${observation.by}] ${describeSubject(observation.subject)}${
+              observation.verdict ? `: ${observation.verdict}` : ""
+            }${observation.text ? ` — ${observation.text}` : ""}${
+              observation.notes ? `\n    notes: ${observation.notes}` : ""
+            }${
+              observation.attachments
+                ? `\n    attachments: ${observation.attachments.join(", ")}`
+                : ""
+            }`,
+        ),
+      );
+    console.log(lines.join("\n"));
   });
 
 program
   .command("circle")
-  .description("Append a review verdict: circle a keeper, or --reject it")
+  .description(
+    "Append a review verdict on a take or the animatic: circle a keeper, or --reject it",
+  )
   .argument("<folder>")
-  .requiredOption("--take <id>", "take id, e.g. shot-001.t02")
+  .option("--take <id>", "take id, e.g. shot-001.t02")
+  .option("--animatic", "judge the animatic instead of a take")
   .option("--reject", "record a rejected verdict instead of circling")
   .option("--notes <file>", "file whose contents become takes/<take>.notes.md")
+  .option("--text <text>", "the reasoning, inline in the dailies entry")
+  .option(
+    "--attach <file...>",
+    "evidence (screenshots, frames) copied into dailies/<session>/",
+  )
   .option("--by <name>", "reviewer recorded in the dailies entry")
   .action(async (folder, options) => {
-    const result = await appendVerdict(folder, options.take, {
+    const result = await appendObservation(folder, {
+      take: options.take,
+      animatic: options.animatic,
       verdict: options.reject ? "rejected" : "circled",
       notesFile: options.notes,
+      text: options.text,
+      attach: options.attach,
       by: options.by,
     });
     console.log(
-      `Wrote ${result.file}: ${options.take} ${options.reject ? "rejected" : "circled"}${result.notes ? ` (notes: ${result.notes})` : ""}`,
+      `Wrote ${result.file}: ${options.take ?? "animatic"} ${options.reject ? "rejected" : "circled"}${result.notes ? ` (notes: ${result.notes})` : ""}${
+        result.attachments
+          ? ` (attachments: ${result.attachments.join(", ")})`
+          : ""
+      }`,
+    );
+  });
+
+program
+  .command("note")
+  .description(
+    "Append a verdict-less review observation about a take, cut, the animatic, or the session",
+  )
+  .argument("<folder>")
+  .option("--take <id>", "take the observation is about, e.g. shot-001.t02")
+  .option("--cut <id>", "cut the observation is about, e.g. 0002")
+  .option("--animatic", "the observation is about the animatic")
+  .option(
+    "--span <a-b>",
+    "seconds on the screenplay timeline (cut/animatic), e.g. 22-32",
+    parseSpan,
+  )
+  .option("--text <text>", "the observation itself, inline")
+  .option("--notes <file>", "file recorded as the observation's notes document")
+  .option(
+    "--attach <file...>",
+    "evidence (screenshots, frames) copied into dailies/<session>/",
+  )
+  .option("--by <name>", "reviewer recorded in the dailies entry")
+  .action(async (folder, options) => {
+    const result = await appendObservation(folder, {
+      take: options.take,
+      cut: options.cut,
+      animatic: options.animatic,
+      span: options.span,
+      text: options.text,
+      notesFile: options.notes,
+      attach: options.attach,
+      by: options.by,
+    });
+    const subject = result.dailies.observations[0]!.subject;
+    console.log(
+      `Wrote ${result.file}: observation on ${describeSubject(subject)}${
+        result.notes ? ` (notes: ${result.notes})` : ""
+      }${
+        result.attachments
+          ? ` (attachments: ${result.attachments.join(", ")})`
+          : ""
+      }`,
     );
   });
 

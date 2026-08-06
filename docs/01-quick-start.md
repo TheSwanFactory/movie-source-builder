@@ -62,10 +62,15 @@ screenplay.docx` scaffolds the folder and copies the draft verbatim into
     miss re-renders the predecessor as **additional numbered takes** before
     failing.
 12. **Author** reviews the dailies: `msb dailies my-movie` lists unreviewed
-    takes; `msb circle my-movie --take shot-001.t02` marks the keeper,
-    `--reject` (optionally `--notes review.md`) records why a take fails —
-    verdicts are appended to the `dailies/` ledger, and the reasoning lands
-    beside the frames it judges as `takes/<take>.notes.md`.
+    takes and past observations; `msb circle my-movie --take shot-001.t02`
+    marks the keeper, `--reject` (optionally `--notes review.md`) records
+    why a take fails — verdicts are appended to the `dailies/` ledger, and
+    the reasoning lands beside the frames it judges as
+    `takes/<take>.notes.md`. Anything watched but not yet judged is an
+    observation: `msb note my-movie --cut 0002 --span 22-32 --text "final
+scene insane" --attach frame.png` parks what was seen (screenshots are
+    copied into `dailies/<session>/`), and `msb circle my-movie --animatic`
+    approves the animatic itself.
 13. **Producer** assembles the deliverable: `msb cut my-movie` picks each
     shot's circled take (else its newest never-rejected rendered take),
     verifies hashes, and writes `cuts/<shoot>.mp4` — never contacting a
@@ -234,7 +239,10 @@ msb animatic <folder> [-o <file>]
 msb shoot <folder> [--config <engine.msbc>] [--dry-run] [--max-cost <usd>]
           [--concurrency <n>] [--fresh]
 msb dailies <folder> [--json]
-msb circle <folder> --take <id> [--reject] [--notes <file>] [--by <name>]
+msb circle <folder> (--take <id> | --animatic) [--reject] [--notes <file>]
+           [--text <text>] [--attach <file>...] [--by <name>]
+msb note <folder> [--take <id> | --cut <id> [--span <a-b>] | --animatic]
+         [--text <text>] [--notes <file>] [--attach <file>...] [--by <name>]
 msb cut <folder> [--shoot <id>] [-o <file>]
 msb latest <folder> [--json]
 msb gc <folder> [--dry-run]

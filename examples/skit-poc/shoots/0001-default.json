@@ -1,0 +1,98 @@
+{
+  "formatVersion": "2.0.0",
+  "shoot": {
+    "id": "0001-default",
+    "createdAt": "2026-08-06T14:12:54.930Z",
+    "status": "failed"
+  },
+  "shotlist": {
+    "id": "001",
+    "hash": "60a8476999b56f9ed79f769f84c8df51f9ca423610eb53625287b3d247431b67"
+  },
+  "engine": {
+    "configName": "default",
+    "hash": "f43e7148265a51c1c850fa392de88149c221b62eb57c3ef19a687c90ec98c80e",
+    "resolved": {
+      "version": "1.0.0",
+      "output": {
+        "aspectRatio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "frameRate": 25
+      },
+      "renderer": {
+        "provider": "fal",
+        "model": "fal-ai/ltx-2.3/image-to-video/fast",
+        "mode": "image-to-video",
+        "requiredEnvironmentVariables": ["FAL_KEY"]
+      }
+    }
+  },
+  "tool": {
+    "name": "movie-source-builder",
+    "version": "0.7.0"
+  },
+  "costs": {
+    "estimated": 1.92,
+    "actual": 1.8
+  },
+  "reused": [],
+  "takes": [
+    {
+      "shot": "shot-001",
+      "take": "shot-001.t01",
+      "status": "rendered",
+      "cacheKey": "1036073fa1c0db0513853ac28b7e7e3d22f8be6e5fe522fbbae7dbc1faa815f8",
+      "media": "takes/shot-001.t01.mp4",
+      "mediaHash": "8117efb4a3bad0869872940279cabd101b2f2d2e5c018e97e39bec49b27238bf",
+      "lastFrame": "takes/shot-001.t01.last.png",
+      "requestId": "019fd769-0267-7e01-965f-18a25ca12c15",
+      "cost": 0.6,
+      "error": null,
+      "warnings": []
+    },
+    {
+      "shot": "shot-001",
+      "take": "shot-001.t02",
+      "status": "rendered",
+      "cacheKey": "1036073fa1c0db0513853ac28b7e7e3d22f8be6e5fe522fbbae7dbc1faa815f8",
+      "media": "takes/shot-001.t02.mp4",
+      "mediaHash": "9d4b06ca1641093774fc268c9b99a36eb975a7735fe844282140a9ed94fe85c5",
+      "lastFrame": "takes/shot-001.t02.last.png",
+      "requestId": "019fd769-da8f-7ee3-9cf5-a98d70319c2f",
+      "cost": 0.6,
+      "error": null,
+      "warnings": [
+        "chain retry (attempt 2/3): downstream drift check for successor shot-002 scored 0.173 (below 0.6)"
+      ]
+    },
+    {
+      "shot": "shot-001",
+      "take": "shot-001.t03",
+      "status": "rendered",
+      "cacheKey": "1036073fa1c0db0513853ac28b7e7e3d22f8be6e5fe522fbbae7dbc1faa815f8",
+      "media": "takes/shot-001.t03.mp4",
+      "mediaHash": "7cc7251d031197e8b9729219951a774cea29ea35d04d2f247928f30e8e7be50c",
+      "lastFrame": "takes/shot-001.t03.last.png",
+      "requestId": "019fd76a-b0ef-7293-ba48-fa9c5f771014",
+      "cost": 0.6,
+      "error": null,
+      "warnings": [
+        "chain retry (attempt 3/3): downstream drift check for successor shot-002 scored 0.134 (below 0.6)"
+      ]
+    },
+    {
+      "shot": "shot-002",
+      "take": "shot-002.t01",
+      "status": "failed",
+      "cacheKey": "7974895d2d181c40dd9e2f734d44417e5096b921ea7f68f3ae2419e215beee40",
+      "cost": 0,
+      "error": "shot shot-002 failed its chain drift check against predecessor shot-001 after 3 predecessor render attempt(s) (similarities: 0.173, 0.134, 0.211), all below threshold 0.6",
+      "warnings": []
+    }
+  ],
+  "findings": [],
+  "warnings": [
+    "concurrency clamped to 1: chained shots (chainFrom) require strictly sequential rendering"
+  ]
+}

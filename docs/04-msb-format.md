@@ -77,7 +77,8 @@ that word is hopelessly overloaded in a repo full of shell scripts,
 | **shot list**            | a versioned tiling of the screenplay timeline into shots, with references and prompts                                    | production                                         |
 | **shoot**                | one renderer invocation against one shot list with one engine                                                            | production                                         |
 | **take**                 | one rendered attempt at one shot                                                                                         | on-set; ≈ a "Version" in ShotGrid/ftrack pipelines |
-| **dailies**              | a review session that records verdicts on takes                                                                          | post-production                                    |
+| **dailies**              | a review session recording observations — notes on takes, cuts, or the animatic — optionally carrying verdicts           | post-production                                    |
+| **observation**          | one thing a reviewer saw, with evidence (text, notes, screenshots) and an optional verdict                               | animation dailies ("notes")                        |
 | **circled take**         | a take a reviewer has marked as the keeper                                                                               | on-set ("circle takes")                            |
 | **animatic**             | the zero-cost review movie assembled from the screenplay and boards                                                      | animation; replaces v1 "storyboard `.msbo`"        |
 | **cut**                  | a deliverable movie assembled from circled takes                                                                         | editorial; replaces v1 "export"                    |
@@ -158,7 +159,10 @@ my-project/                       # the project folder IS the msb
 │   ├── 0001-ltx.json
 │   └── 0002-hailuo.json
 ├── dailies/                      # append-only review ledger
-│   └── 0001.json
+│   ├── 0001.json
+│   ├── 0002.json                 # one JSON per review session
+│   └── 0002/                     # session assets: attached review evidence
+│       └── insane-ending.png
 └── cuts/
     ├── animatic.mp4              # zero-cost screenplay + boards assembly
     └── 0002-hailuo.mp4           # deliverable cut of shoot 0002
@@ -480,31 +484,65 @@ What the pure-link shape buys:
 Rendering and judging are different events, often far apart — #13's core
 lesson is that the judgment ("6 puppets, duplicate badges — violates the
 shot's own continuity, not a style difference") must outlive the moment it
-happened. Since takes and shoots are write-once, verdicts get their own
+happened. Since takes and shoots are write-once, review gets its own
 append-only ledger: `dailies/<ordinal>.json`, one file per review session.
+
+A session records **observations** — things a reviewer saw — each optionally
+carrying a **verdict** (#17). Observing and deciding are different acts:
+real-world dailies are notes-first, approvals-sometimes, and the ledger's
+promise is that everything watched-but-not-yet-judged is visible to a fresh
+instance without a chat transcript.
 
 ```json
 {
   "formatVersion": "2.0.0",
-  "dailies": { "id": "0001", "at": "2026-08-05T04:20:00Z", "by": "author" },
-  "verdicts": [
+  "dailies": { "id": "0002", "at": "2026-08-06T15:00:00Z", "by": "author" },
+  "observations": [
     {
-      "take": "shot-001.t01",
+      "subject": { "take": "shot-001.t01" },
       "verdict": "rejected",
       "notes": "takes/shot-001.t01.notes.md"
     },
-    { "take": "shot-001.t02", "verdict": "circled" }
+    { "subject": { "take": "shot-001.t02" }, "verdict": "circled" },
+    {
+      "subject": { "cut": "0002-hailuo", "span": [22, 32] },
+      "text": "Final scene insane: puppets vanish, a human delivers replacements.",
+      "attachments": ["dailies/0002/insane-ending.png"]
+    },
+    { "subject": { "animatic": true }, "verdict": "circled" },
+    { "text": "watched cut 0002-hailuo with the author" }
   ]
 }
 ```
 
-A take's current standing is the latest verdict across all dailies:
-**circled** (the keeper for its shot), **rejected**, or unreviewed. An
-engine-successful take that fails human review — the 6-puppet case — is
-`rendered` in its shoot and `rejected` in dailies, with the reasoning in
-`notes.md` sitting beside the exact frames it describes. v1's `msb approve`
-becomes a circled verdict (a dailies entry names a take; the take's shoot
-pins the shot list, screenplay, and engine hashes).
+An observation's **subject** is a take, a cut (optionally with a `span` in
+seconds on the screenplay timeline, so "the final scene" needs no mapping to
+a take id at watch time), the animatic, or — subject omitted — the session
+itself. Verdicts are legal on take and animatic subjects only. An
+observation with no verdict must say what was seen: `text` inline, `notes`
+pointing at a notes document, or `attachments`.
+
+**Attachments are review evidence.** The cheapest way to file a note is a
+screenshot of the offending frame; `msb note --attach` copies it verbatim
+into the session's asset directory, `dailies/<ordinal>/`, and records the
+reference — so the evidence lives in the folder instead of dying with a chat
+transcript. The ledger `.json` stays write-once; the asset directory is
+populated once, when the session is appended.
+
+A take's current standing is the latest **verdict** across all dailies:
+**circled** (the keeper for its shot), **rejected**, or unreviewed —
+verdict-less observations never change standing. An engine-successful take
+that fails human review — the 6-puppet case — is `rendered` in its shoot and
+`rejected` in dailies, with the reasoning in `notes.md` sitting beside the
+exact frames it describes. v1's `msb approve` becomes a circled verdict (a
+dailies entry names a take; the take's shoot pins the shot list, screenplay,
+and engine hashes).
+
+`msb note <folder> [--take <id> | --cut <id> [--span a-b] | --animatic]
+[--text "…"] [--notes <file>] [--attach <file>...]` appends an
+observation-only session; `msb circle` is sugar for an observation carrying
+a verdict (and accepts `--animatic` to judge the animatic). `msb dailies`
+and `msb inspect` surface observations alongside verdicts.
 
 ### Cuts
 
@@ -599,8 +637,11 @@ Made explicit, per #13's acceptance criteria:
   the canonical screenplay; `msb animatic <folder>` assembles the
   screenplay + boards cut; `msb shoot <folder> --config <engine.msbc>`
   appends a shoot and its takes; `msb dailies <folder>` lists unreviewed
-  takes and `msb circle <folder> --take shot-001.t02 [--notes <file>]` /
-  `--reject` append verdicts; `msb cut <folder>` assembles the deliverable;
+  takes and past observations, `msb note <folder>` appends a verdict-less
+  observation (about a take, a cut, the animatic, or the session, with
+  `--text`/`--notes`/`--attach` evidence), and `msb circle <folder> --take
+shot-001.t02 [--notes <file>]` / `--reject` / `--animatic` append
+  verdicts; `msb cut <folder>` assembles the deliverable;
   `msb latest`, `msb gc --dry-run`, `msb inspect
 [--findings|--shot <id>|--screenplay]` as described above;
   `msb pack <folder> [--source-only]` emits the optional

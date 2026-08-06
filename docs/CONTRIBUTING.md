@@ -388,9 +388,18 @@ See [#11](../../../issues/11) for the authoritative list. Status against Tier A:
   `CHAIN_DRIFT_MAX_ATTEMPTS` still stops the shoot with a clear message, and
   rerunning after a manual edit beyond that is a normal `msb shoot`, not new
   machinery.
-- A CLI/config flag to bypass or tune the similarity threshold or the retry
-  attempt count — both remain fixed constants (`CHAIN_SIMILARITY_THRESHOLD`,
-  `CHAIN_DRIFT_MAX_ATTEMPTS` in `src/chain.ts`).
+- A CLI/config flag to bypass or tune the retry attempt count — it remains a
+  fixed constant (`CHAIN_DRIFT_MAX_ATTEMPTS` in `src/chain.ts`). The
+  similarity threshold was originally fixed too, but the skit-poc v2 shoot
+  proved SSIM framing-sensitivity makes one constant uncalibratable: this
+  project's consecutive authored boards — the ideal-transition ground
+  truth — score only 0.24–0.33 against each other (rendered frames vs. their
+  own boards: ~0.16), so the 0.6 default is unreachable by construction for
+  any project whose boards change camera angle between chained shots.
+  `msb shoot --chain-threshold <n>` overrides it per shoot;
+  `CHAIN_SIMILARITY_THRESHOLD` stays the default, and any override is
+  recorded in the shoot's warnings so the ledger shows what gate was
+  actually applied.
 - Claiming cross-shot continuity solved from a single successful manual test.
 - Reworking `image-to-video`/`reference-to-video` contracts unrelated to
   chaining.

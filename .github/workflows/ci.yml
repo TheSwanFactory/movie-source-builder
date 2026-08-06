@@ -1,15 +1,30 @@
 name: CI
 
 on:
+  # Pull requests cover feature branches; restricting push to main avoids
+  # running the same commit twice (once per event) on every PR branch.
   push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
+# Collapse superseded runs for the same branch. Never cancel a main run:
+# main is the release trigger, so its CI signal has to survive.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    # Green runs finish in 16-53s; the slowest run ever observed was 142s, and
+    # the largest internal bound is FFMPEG_TIMEOUT_MS (120s) in src/chain.ts.
+    # 5min is ~2x the worst case: a hang fails fast instead of burning the
+    # 360min default. Note this clock starts only once a runner is assigned;
+    # it does not bound time spent queued.
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

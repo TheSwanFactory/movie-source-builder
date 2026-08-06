@@ -1,0 +1,103 @@
+{
+  "formatVersion": "2.0.0",
+  "shoot": {
+    "id": "0002-default",
+    "createdAt": "2026-08-06T14:22:27.081Z",
+    "status": "complete"
+  },
+  "shotlist": {
+    "id": "001",
+    "hash": "60a8476999b56f9ed79f769f84c8df51f9ca423610eb53625287b3d247431b67"
+  },
+  "engine": {
+    "configName": "default",
+    "hash": "f43e7148265a51c1c850fa392de88149c221b62eb57c3ef19a687c90ec98c80e",
+    "resolved": {
+      "version": "1.0.0",
+      "output": {
+        "aspectRatio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "frameRate": 25
+      },
+      "renderer": {
+        "provider": "fal",
+        "model": "fal-ai/ltx-2.3/image-to-video/fast",
+        "mode": "image-to-video",
+        "requiredEnvironmentVariables": ["FAL_KEY"]
+      }
+    }
+  },
+  "tool": {
+    "name": "movie-source-builder",
+    "version": "0.7.0"
+  },
+  "costs": {
+    "estimated": 1.32,
+    "actual": 1.32
+  },
+  "reused": [
+    {
+      "shot": "shot-001",
+      "take": "shot-001.t03",
+      "from": "0001-default",
+      "mediaHash": "7cc7251d031197e8b9729219951a774cea29ea35d04d2f247928f30e8e7be50c",
+      "cacheKey": "1036073fa1c0db0513853ac28b7e7e3d22f8be6e5fe522fbbae7dbc1faa815f8"
+    }
+  ],
+  "takes": [
+    {
+      "shot": "shot-002",
+      "take": "shot-002.t02",
+      "status": "rendered",
+      "cacheKey": "7974895d2d181c40dd9e2f734d44417e5096b921ea7f68f3ae2419e215beee40",
+      "media": "takes/shot-002.t02.mp4",
+      "mediaHash": "5de513c263952df35aed972bcbc1f81803d765dc84c206430ee633cc9310d769",
+      "lastFrame": "takes/shot-002.t02.last.png",
+      "requestId": "019fd770-de1c-73e2-9ed5-4c3b3934f2e8",
+      "cost": 0.36,
+      "error": null,
+      "warnings": [
+        "composition promoted from predecessor shot-001's rendered frame (similarity 0.211)"
+      ],
+      "chainScore": 0.211274
+    },
+    {
+      "shot": "shot-003",
+      "take": "shot-003.t01",
+      "status": "rendered",
+      "cacheKey": "33334f008fbddde1fb674370f035d7a99105feb58ff736c79a25f42ef83fea55",
+      "media": "takes/shot-003.t01.mp4",
+      "mediaHash": "bc2ab2de7b14c84b381bcece55d61947173437ae1f1fc07663352d8aa106374e",
+      "lastFrame": "takes/shot-003.t01.last.png",
+      "requestId": "019fd772-4b16-7121-a7c0-8d6828b2d35d",
+      "cost": 0.36,
+      "error": null,
+      "warnings": [
+        "composition promoted from predecessor shot-002's rendered frame (similarity 0.259)"
+      ],
+      "chainScore": 0.259033
+    },
+    {
+      "shot": "shot-004",
+      "take": "shot-004.t01",
+      "status": "rendered",
+      "cacheKey": "b7d8be312c03d906597508c0c1a5f38f73a14fbda080cbe634cdd4748b47a0d0",
+      "media": "takes/shot-004.t01.mp4",
+      "mediaHash": "97bc1b0878f7935b5eb2d762638736ebef45b3b9545953c5068f05bb2104534a",
+      "lastFrame": "takes/shot-004.t01.last.png",
+      "requestId": "019fd773-45c1-7cb3-a51e-06798371a3ec",
+      "cost": 0.6,
+      "error": null,
+      "warnings": [
+        "composition promoted from predecessor shot-003's rendered frame (similarity 0.189)"
+      ],
+      "chainScore": 0.189242
+    }
+  ],
+  "findings": [],
+  "warnings": [
+    "concurrency clamped to 1: chained shots (chainFrom) require strictly sequential rendering",
+    "chain drift threshold overridden to 0.1 (default 0.6)"
+  ]
+}
