@@ -24,9 +24,7 @@
         "provider": "fal",
         "model": "fal-ai/ltx-2.3/image-to-video/fast",
         "mode": "image-to-video",
-        "requiredEnvironmentVariables": [
-          "FAL_KEY"
-        ]
+        "requiredEnvironmentVariables": ["FAL_KEY"]
       }
     }
   },
